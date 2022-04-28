@@ -9,7 +9,7 @@ template <typename T, std::size_t N> struct Payload {
   virtual void deserialize(const std::array<T, N> &serialized) = 0;
 };
 
-struct ObserverMessagePayload : public Payload<unsigned, 4> {
+struct EntirePayload : public Payload<unsigned, 4> {
   unsigned winemaker_id;
   unsigned student_id;
   unsigned safe_place_id;
@@ -28,3 +28,15 @@ struct ObserverMessagePayload : public Payload<unsigned, 4> {
     wine_amount = serialized[3];
   }
 };
+
+struct ClockOnlyPayload : public Payload<unsigned, 1> {
+  unsigned clock;
+
+  MPI_Datatype getType() const override { return MPI_UNSIGNED; }
+
+  std::array<unsigned, 1> serialize() const override { return {clock}; }
+
+  void deserialize(const std::array<unsigned, 1> &serialized) override {
+    clock = serialized[0];
+  }
+}

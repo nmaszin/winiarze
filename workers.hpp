@@ -42,7 +42,7 @@ public:
 
   void run() override {
     while (true) {
-      MessageTransmitter<ObserverMessagePayload> transmitter;
+      MessageTransmitter<EntirePayload> transmitter;
       auto response = transmitter.receive(MPI_ANY_TAG, MPI_ANY_SOURCE);
       const auto &payload = response.payload;
 
@@ -206,16 +206,20 @@ private:
     std::this_thread::sleep_for(duration);
     wine_available = randint(1, config.max_wine_production);
 
-    ObserverMessagePayload payload;
+    EntirePayload payload;
     payload.winemaker_id = id;
     payload.wine_amount = wine_available;
 
-    MessageTransmitter<ObserverMessagePayload> transmitter;
+    MessageTransmitter<EntirePayload> transmitter;
     transmitter.send(ObserverMessage::WINEMAKER_PRODUCTION_END, payload, 0);
   }
 
   void reserveSafePlace() {
-    // TODO:
+    MessageTransmitter<EntirePayload> transmitter;
+    config.forEachWinemaker([](int process_id) {
+      transmitter.send(ObserverMessage::WINEMAKER_SAFE_PLACE_REQUEST, payload,
+                       process_id);
+    });
   }
 
   void handleSafePlace() {

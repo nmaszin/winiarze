@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
   MPI_Init(&argc, &argv);
 
   int current_number_of_processes;
-  int expected_number_of_processes = config.total_processes();
+  int expected_number_of_processes = config.getTotalProcessesNumber();
   MPI_Comm_size(MPI_COMM_WORLD, &current_number_of_processes);
   if (current_number_of_processes != expected_number_of_processes) {
     std::cerr << "Invalid number of processes\n";
