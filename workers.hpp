@@ -215,9 +215,13 @@ private:
   }
 
   void reserveSafePlace() {
+    EntirePayload payload;
+    payload.winemaker_id = id;
+    payload.wine_amount = wine_available;
+
     MessageTransmitter<EntirePayload> transmitter;
-    config.forEachWinemaker([](int process_id) {
-      transmitter.send(ObserverMessage::WINEMAKER_SAFE_PLACE_REQUEST, payload,
+    config.forEachWinemaker([&](int process_id) {
+      transmitter.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST, payload,
                        process_id);
     });
   }

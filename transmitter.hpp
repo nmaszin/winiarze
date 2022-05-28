@@ -10,7 +10,6 @@ template <typename PayloadType> struct MessageTransmitter {
 
   void send(int message, const PayloadType &payload, int dest,
             MPI_Comm comm = MPI_COMM_WORLD) {
-
     auto serialized = payload.serialize();
     MPI_Send(serialized.data(), serialized.size(), payload.getType(), dest,
              message, comm);

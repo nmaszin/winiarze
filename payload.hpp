@@ -39,4 +39,4 @@ struct ClockOnlyPayload : public Payload<unsigned, 1> {
   void deserialize(const std::array<unsigned, 1> &serialized) override {
     clock = serialized[0];
   }
-}
+};

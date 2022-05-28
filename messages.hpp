@@ -32,7 +32,7 @@ struct ObserverMessage {
   };
 };
 
-struct WinemakerMessages {
+struct WinemakerMessage {
   enum {
     // Winiarz chce uzyskać dostęp do sekcji krytycznej związanej z meliną
     WINEMAKER_SAFE_PLACE_REQUEST = 200,
@@ -54,7 +54,7 @@ struct WinemakerMessages {
   };
 };
 
-struct StudentMessages {
+struct StudentMessage {
   enum {
     // Student chce uzyskać dostęp do sekcji krytycznej związanej z meliną
     STUDENT_SAFE_PLACE_REQUEST = 300,
