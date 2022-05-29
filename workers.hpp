@@ -82,8 +82,8 @@ public:
         auto sid = config.getStudentId(payload.student_id);
         auto wid = config.getWinemakerId(payload.winemaker_id);
 
-        std::cerr << "(" << students_wine_needs[sid - 1] << " - "
-                  << payload.wine_amount << ")\n";
+        // std::cerr << "(" << students_wine_needs[sid - 1] << " - " <<
+        // payload.wine_amount << ")\n";
 
         students_wine_needs[sid - 1] -= payload.wine_amount;
         winemakers_wine_amounts[wid - 1] -= payload.wine_amount;
@@ -410,11 +410,11 @@ private:
     while (wine_available > 0) {
       if (wait_for_student) {
         m.unlock();
-        std::cerr << "[winiarz:" << id
-                  << "] Muszę teraz poczekać na studenta :(\n";
+        // std::cerr << "[winiarz:" << id << "] Muszę teraz poczekać na studenta
+        // :(\n";
         std::unique_lock<std::mutex> lock(student_wait_mutex);
         student_wait.wait(lock);
-        std::cerr << "[winiarz:" << id << "] Już nie muszę :D\n";
+        // std::cerr << "[winiarz:" << id << "] Już nie muszę :D\n";
         m.lock();
       }
 
@@ -681,15 +681,17 @@ private:
   void handleSafePlace() {
     m.lock();
     while (wine_demand > 0) {
+      std::cerr << "[[[ " << wine_demand << "]]]\n";
+
       if (wait_for_winemaker) {
         m.unlock();
-        std::cerr << "[student:" << id
-                  << "] Muszę teraz poczekać na winiarza\n";
+        // std::cerr << "[student:" << id << "] Muszę teraz poczekać na
+        // winiarza\n";
         std::unique_lock<std::mutex> lock(winemaker_wait_mutex);
         winemaker_wait.wait(lock);
 
-        std::cerr << "[student:" << id
-                  << "] Już nie muszę se czekać na winiarza :D\n";
+        // std::cerr << "[student:" << id << "] Już nie muszę se czekać na
+        // winiarza :D\n";
         m.lock();
       }
 
@@ -698,11 +700,11 @@ private:
       m.unlock();
       {
         std::unique_lock<std::mutex> lock(wine_gave_wait_mutex);
-        std::cerr << "[student:" << id
-                  << "] Muszę teraz poczekać, aż winiarz da mi wino\n";
+        // std::cerr << "[student:" << id << "] Muszę teraz poczekać, aż winiarz
+        // da mi wino\n";
         wine_gave_wait.wait(lock);
-        std::cerr << "[student:" << id
-                  << "] Już nie musze czekać, az da mi wino :D\n";
+        // std::cerr << "[student:" << id << "] Już nie musze czekać, az da mi
+        // wino :D\n";
       }
       m.lock();
     }
