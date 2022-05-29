@@ -35,13 +35,11 @@ struct ObserverMessage {
 struct WinemakerMessage {
   enum {
     // Winiarz chce uzyskać dostęp do sekcji krytycznej związanej z meliną
+    // (clock)
     WINEMAKER_SAFE_PLACE_REQUEST = 200,
 
     // Zgoda na wejście do sekcji krytycznej związanej z meliną
     WINEMAKER_SAFE_PLACE_ACK,
-
-    // Winiarz chce opuścić sekcję krytyczną związaną z meliną
-    WINEMAKER_SAFE_PLACE_RELEASE,
 
     // Winiarz zarezerwował melinę
     WINEMAKER_SAFE_PLACE_RESERVED,
@@ -62,16 +60,10 @@ struct StudentMessage {
     // Student uzyskał zgodę na wejście do sekcji krytycznej związanej z meliną
     STUDENT_SAFE_PLACE_ACK,
 
-    // Student opuszcza sekcję krytyczną związaną z meliną
-    STUDENT_SAFE_PLACE_RELEASE,
-
     // Student ogłasza innym studentom, że zarezerwował melinę
     STUDENT_SAFE_PLACE_RESERVED,
 
     // Student opuszcza melinę
     STUDENT_SAFE_PLACE_LEFT,
-
-    // Student prosi winiarza o wino w jakiejś ilości
-    GIVE_ME_WINE,
   };
 };

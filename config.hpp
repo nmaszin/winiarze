@@ -23,11 +23,10 @@ struct Config {
     }
   }
 
-  // For All, except observator!
   void forAll(std::function<void(int)> callback) {
-    auto total = winemakers + students;
+    auto total = getTotalProcessesNumber();
     for (int i = 0; i < total; i++) {
-      callback(i + 1);
+      callback(i);
     }
   }
 };
