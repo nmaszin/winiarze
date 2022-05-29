@@ -330,7 +330,8 @@ private:
   void reserveSafePlace() {
     while (true) {
       {
-        std::cerr << "[Winiarz:" << id << "] Chcę wejśc do sekcji krytycznej\n";
+        // std::cerr << "[Winiarz:" << id << "] Chcę wejśc do sekcji
+        // krytycznej\n";
         std::unique_lock<std::mutex>(m);
         want_to_enter_critical_section = true;
         critical_section_counter = config.winemakers - 1;
@@ -349,7 +350,8 @@ private:
       {
         std::unique_lock<std::mutex>(m);
         // Critical section start
-        std::cerr << "[Winiarz:" << id << "] Wszedłem do sekcji krytycznej\n";
+        // std::cerr << "[Winiarz:" << id << "] Wszedłem do sekcji
+        // krytycznej\n";
         bool ok = false;
         for (unsigned i = 0; i < config.safe_places; i++) {
           if (safe_places_free[i]) {
@@ -363,7 +365,7 @@ private:
           }
         }
 
-        std::cerr << "[Winiarz:" << id << "] Ok = " << ok << "\n";
+        // std::cerr << "[Winiarz:" << id << "] Ok = " << ok << "\n";
 
         if (ok) {
           config.forAll([&](int process_id) {
@@ -383,7 +385,7 @@ private:
         }
 
         // Critical section end
-        std::cerr << "[Winiarz:" << id << "] Wychodzę z sekcji krytycznej\n";
+        // std::cerr << "[Winiarz:" << id << "] Wychodzę z sekcji krytycznej\n";
         while (!wait_queue.empty()) {
           auto process_id = wait_queue.front();
           wait_queue.pop();
@@ -408,9 +410,11 @@ private:
     while (wine_available > 0) {
       if (wait_for_student) {
         m.unlock();
+        std::cerr << "[winiarz:" << id
+                  << "] Muszę teraz poczekać na studenta :(\n";
         std::unique_lock<std::mutex> lock(student_wait_mutex);
         student_wait.wait(lock);
-        std::cerr << "Już nie muszę :D\n";
+        std::cerr << "[winiarz:" << id << "] Już nie muszę :D\n";
         m.lock();
       }
 
@@ -552,7 +556,7 @@ protected:
       case WinemakerMessage::HERE_YOU_ARE: {
         wine_demand -= response.payload.wine_amount;
         wine_gave_wait.notify_one();
-        std::cerr << "<<< UWAGA :D >>>\n";
+        // std::cerr << "<<< UWAGA :D >>>\n";
         break;
       }
       }
@@ -604,7 +608,7 @@ private:
     while (true) {
       {
         std::unique_lock<std::mutex>(m);
-        std::cerr << "Chcę wejść do sekcji krytycznej\n";
+        // std::cerr << "Chcę wejść do sekcji krytycznej\n";
         want_to_enter_critical_section = true;
         critical_section_counter = config.students - 1;
 
@@ -623,7 +627,7 @@ private:
       {
         // Critical section start
         std::unique_lock<std::mutex>(m);
-        std::cerr << "Początek sekcji krytycznej\n";
+        // std::cerr << "Początek sekcji krytycznej\n";
         want_to_enter_critical_section = false;
         bool ok = false;
         for (int i = 0; i < safe_places_free.size(); i++) {
@@ -653,7 +657,7 @@ private:
           }
         }
 
-        std::cerr << "Koniec sekcji krytycznej\n";
+        // std::cerr << "Koniec sekcji krytycznej\n";
 
         // Critical section end
         while (!wait_queue.empty()) {
@@ -679,17 +683,14 @@ private:
     while (wine_demand > 0) {
       if (wait_for_winemaker) {
         m.unlock();
-        std::cerr
-            << "[[[[[[[[[[[[[[[[[[[ no to se poczekam ]]]]]]]]]]]]]]]]]]]\n";
+        std::cerr << "[student:" << id
+                  << "] Muszę teraz poczekać na winiarza\n";
         std::unique_lock<std::mutex> lock(winemaker_wait_mutex);
         winemaker_wait.wait(lock);
 
-        std::cerr
-            << "[[[[[[[[[[[[[[[[[[[ już se poczekałam ]]]]]]]]]]]]]]]]]]]\n";
+        std::cerr << "[student:" << id
+                  << "] Już nie muszę se czekać na winiarza :D\n";
         m.lock();
-      } else {
-        std::cerr
-            << "[[[[[[[[[[[[[[[[[[[ nie muszę se czekać ]]]]]]]]]]]]]]]]]]]\n";
       }
 
       wait_for_winemaker = true;
@@ -697,9 +698,11 @@ private:
       m.unlock();
       {
         std::unique_lock<std::mutex> lock(wine_gave_wait_mutex);
-        std::cerr << "[[[[[[[[[[[[[[[[[[[[[sad]]]]]]]]]]]]]]]]]]]]]\n";
+        std::cerr << "[student:" << id
+                  << "] Muszę teraz poczekać, aż winiarz da mi wino\n";
         wine_gave_wait.wait(lock);
-        std::cerr << "[[[[[[[[[[[[[[[[[[[[[happy]]]]]]]]]]]]]]]]]]]]]\n";
+        std::cerr << "[student:" << id
+                  << "] Już nie musze czekać, az da mi wino :D\n";
       }
       m.lock();
     }
