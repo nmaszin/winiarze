@@ -15,6 +15,25 @@ struct EntirePayload : public Payload<unsigned, 4> {
   unsigned safe_place_id;
   unsigned wine_amount;
 
+  EntirePayload &setWinemakerId(unsigned value) {
+    winemaker_id = value;
+    return *this;
+  }
+
+  EntirePayload &setStudentId(unsigned value) {
+    student_id = value;
+    return *this;
+  }
+
+  EntirePayload &setSafePlaceId(unsigned value) {
+    safe_place_id = value;
+    return *this;
+  }
+  EntirePayload &setWineAmount(unsigned value) {
+    wine_amount = value;
+    return *this;
+  }
+
   MPI_Datatype getType() const override { return MPI_UNSIGNED; }
 
   std::array<unsigned, 4> serialize() const override {
@@ -31,6 +50,9 @@ struct EntirePayload : public Payload<unsigned, 4> {
 
 struct ClockOnlyPayload : public Payload<unsigned, 1> {
   unsigned clock;
+
+  ClockOnlyPayload() = default;
+  ClockOnlyPayload(unsigned clock) : clock(clock) {}
 
   MPI_Datatype getType() const override { return MPI_UNSIGNED; }
 

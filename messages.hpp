@@ -38,7 +38,7 @@ struct WinemakerMessage {
     WINEMAKER_SAFE_PLACE_REQUEST = 200,
 
     // Zgoda na wejście do sekcji krytycznej związanej z meliną
-    WINEMAKE_SAFE_PLACE_ACK,
+    WINEMAKER_SAFE_PLACE_ACK,
 
     // Winiarz chce opuścić sekcję krytyczną związaną z meliną
     WINEMAKER_SAFE_PLACE_RELEASE,

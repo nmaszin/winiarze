@@ -182,7 +182,8 @@ private:
 
 class Winemaker : public WorkingProcess {
 public:
-  Winemaker(Config &config, unsigned id) : config(config), id(id) {}
+  Winemaker(Config &config, unsigned id)
+      : config(config), id(id), safe_places_free(config.safe_places, true) {}
 
 protected:
   void foregroundTask() override {
@@ -200,29 +201,57 @@ private:
   Config &config;
   unsigned id;
   unsigned wine_available = 0;
+  unsigned safe_place_id = 0;
+  unsigned clock = 0;
+
+  std::vector<bool> safe_places_free;
+  MessageTransmitter<ClockOnlyPayload> ct;
+  MessageTransmitter<EntirePayload> et;
 
   void makeWine() {
     auto duration = std::chrono::seconds(randint(1, 10));
     std::this_thread::sleep_for(duration);
     wine_available = randint(1, config.max_wine_production);
 
-    EntirePayload payload;
-    payload.winemaker_id = id;
-    payload.wine_amount = wine_available;
-
-    MessageTransmitter<EntirePayload> transmitter;
-    transmitter.send(ObserverMessage::WINEMAKER_PRODUCTION_END, payload, 0);
+    et.send(ObserverMessage::WINEMAKER_PRODUCTION_END,
+            EntirePayload().setWinemakerId(id).setWineAmount(wine_available),
+            0);
   }
 
   void reserveSafePlace() {
-    EntirePayload payload;
-    payload.winemaker_id = id;
-    payload.wine_amount = wine_available;
-
-    MessageTransmitter<EntirePayload> transmitter;
     config.forEachWinemaker([&](int process_id) {
-      transmitter.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST, payload,
-                       process_id);
+      ct.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST,
+              ClockOnlyPayload(clock), process_id);
+    });
+
+    for (unsigned i = 0; i < config.winemakers - 1; i++) {
+      auto response = ct.receive(WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK,
+                                 MPI_ANY_SOURCE);
+      clock = std::max(clock, response.payload.clock + 1);
+    }
+
+    // Critical section start
+    for (unsigned i = 0; i < config.safe_places; i++) {
+      if (safe_places_free[i]) {
+        safe_places_free[i] = false;
+        safe_place_id = i;
+        break;
+      }
+    }
+
+    config.forEachStudent([&](int process_id) {
+      et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_RESERVED,
+              EntirePayload()
+                  .setWinemakerId(id)
+                  .setSafePlaceId(safe_place_id)
+                  .setWineAmount(wine_available),
+              process_id);
+    });
+
+    // Critical section end
+    config.forEachWinemaker([&](int process_id) {
+      ct.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_RELEASE,
+              ClockOnlyPayload(clock), process_id);
     });
   }
 
