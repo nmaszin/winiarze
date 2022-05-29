@@ -5,6 +5,7 @@
 template <typename PayloadType> struct MessageTransmitter {
   struct Response {
     int message;
+    int source;
     PayloadType payload;
   };
 
@@ -25,6 +26,7 @@ template <typename PayloadType> struct MessageTransmitter {
 
     response.payload.deserialize(array);
     response.message = status.MPI_TAG;
+    response.source = status.MPI_SOURCE;
     return response;
   }
 };

@@ -7,9 +7,11 @@
 
 #include <algorithm>
 #include <chrono>
+#include <condition_variable>
 #include <iostream>
 #include <memory>
 #include <mpi.h>
+#include <queue>
 #include <thread>
 #include <vector>
 
@@ -195,7 +197,48 @@ protected:
     }
   }
 
-  void backgroundTask() override {}
+  void backgroundTask() override {
+    while (true) {
+      auto response = et.receive(MPI_ANY_TAG, MPI_ANY_SOURCE);
+      switch (response.message) {
+      case WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST:
+        // Czy tu nie powinien być mutex?
+        if (response.payload.clock > clock) {
+          et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK,
+                  EntirePayload(clock), response.source);
+          clock = std::max(clock, response.payload.clock);
+        } else {
+          wait_queue.push(response.source);
+        }
+        break;
+
+      case WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK:
+        critical_section_counter--;
+        if (critical_section_counter == 0) {
+          wait_for_message.notify_one();
+        }
+        break;
+
+      case WinemakerMessage::WINEMAKER_SAFE_PLACE_RELEASE:
+        // Czy to jest w ogóle potrzebne?
+        break;
+
+      case WinemakerMessage::WINEMAKER_SAFE_PLACE_RESERVED:
+        safe_places_free[response.payload.safe_place_id] = false;
+        break;
+
+      case WinemakerMessage::WINEMAKER_SAFE_PLACE_LEFT:
+        safe_places_free[response.payload.safe_place_id] = true;
+        break;
+
+      case StudentMessage::GIVE_ME_WINE:
+        wine_requested = response.payload.wine_amount;
+        student_id = response.payload.student_id;
+        wait_for_message.notify_one();
+        break;
+      }
+    }
+  }
 
 private:
   Config &config;
@@ -205,10 +248,19 @@ private:
   unsigned clock = 0;
 
   std::vector<bool> safe_places_free;
-  MessageTransmitter<ClockOnlyPayload> ct;
   MessageTransmitter<EntirePayload> et;
 
+  std::condition_variable wait_for_message;
+  std::mutex wait_for_message_mutex;
+  std::queue<int> wait_queue;
+  unsigned critical_section_counter;
+  unsigned wine_requested;
+  unsigned student_id;
+
   void makeWine() {
+    et.send(ObserverMessage::WINEMAKER_PRODUCTION_STARTED,
+            EntirePayload().setWinemakerId(id), 0);
+
     auto duration = std::chrono::seconds(randint(1, 10));
     std::this_thread::sleep_for(duration);
     wine_available = randint(1, config.max_wine_production);
@@ -219,15 +271,16 @@ private:
   }
 
   void reserveSafePlace() {
+    critical_section_counter = config.winemakers - 1;
+
     config.forEachWinemaker([&](int process_id) {
-      ct.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST,
-              ClockOnlyPayload(clock), process_id);
+      et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST,
+              EntirePayload(clock), process_id);
     });
 
-    for (unsigned i = 0; i < config.winemakers - 1; i++) {
-      auto response = ct.receive(WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK,
-                                 MPI_ANY_SOURCE);
-      clock = std::max(clock, response.payload.clock + 1);
+    {
+      std::unique_lock<std::mutex> lock(wait_for_message_mutex);
+      wait_for_message.wait(lock);
     }
 
     // Critical section start
@@ -239,10 +292,9 @@ private:
       }
     }
 
-    config.forEachStudent([&](int process_id) {
+    config.forAll([&](int process_id) {
       et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_RESERVED,
               EntirePayload()
-                  .setWinemakerId(id)
                   .setSafePlaceId(safe_place_id)
                   .setWineAmount(wine_available),
               process_id);
@@ -250,47 +302,170 @@ private:
 
     // Critical section end
     config.forEachWinemaker([&](int process_id) {
-      ct.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_RELEASE,
-              ClockOnlyPayload(clock), process_id);
+      et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_RELEASE,
+              EntirePayload(clock), process_id);
     });
+
+    while (!wait_queue.empty()) {
+      auto process_id = wait_queue.front();
+      wait_queue.pop();
+      et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK, EntirePayload(clock),
+              process_id);
+    }
+
+    et.send(ObserverMessage::WINEMAKER_RESERVED_SAFE_PLACE,
+            EntirePayload().setWinemakerId(id).setSafePlaceId(safe_place_id),
+            0);
   }
 
   void handleSafePlace() {
     while (wine_available > 0) {
-      // TODO:
-      break;
+      {
+        std::unique_lock<std::mutex> lock(wait_for_message_mutex);
+        wait_for_message.wait(lock);
+      }
+
+      auto wine_given = std::min(wine_requested, wine_available);
+
+      et.send(WinemakerMessage::HERE_YOU_ARE,
+              EntirePayload().setWineAmount(wine_given), student_id);
+
+      et.send(ObserverMessage::WINEMAKER_GAVE_WINE_TO_STUDENT,
+              EntirePayload()
+                  .setWinemakerId(id)
+                  .setStudentId(student_id)
+                  .setSafePlaceId(safe_place_id)
+                  .setWineAmount(wine_given),
+              0);
+
+      wine_available -= wine_given;
     }
   }
 
   void leaveSafePlace() {
-    // TODO
+    config.forEachWinemaker([&](int process_id) {
+      et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST,
+              EntirePayload(clock), process_id);
+    });
+
+    for (unsigned i = 0; i < config.winemakers - 1; i++) {
+      auto response = et.receive(WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK,
+                                 MPI_ANY_SOURCE);
+      clock = std::max(clock, response.payload.clock + 1);
+    }
+
+    // Critical section start
+    safe_places_free[safe_place_id] = true;
+
+    config.forAll([&](int process_id) {
+      et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_LEFT,
+              EntirePayload().setSafePlaceId(safe_place_id), process_id);
+    });
+
+    // Critical section end
+    config.forEachWinemaker([&](int process_id) {
+      et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_RELEASE,
+              EntirePayload(clock), process_id);
+    });
+
+    et.send(ObserverMessage::WINEMAKER_LEFT_SAFE_PLACE,
+            EntirePayload().setWinemakerId(id).setSafePlaceId(safe_place_id),
+            0);
   }
 };
 
 class Student : public WorkingProcess {
 public:
-  Student(Config &config, unsigned id) : config(config), id(id) {}
+  Student(Config &config, unsigned id)
+      : config(config), id(id), safe_places_free(config.safe_places, true) {}
 
 protected:
   void foregroundTask() override {
-    // TODO:
+    while (true) {
+      relax();
+      reserveSafePlace();
+      handleSafePlace();
+      leaveSafePlace();
+    }
   }
 
   void backgroundTask() override {
-    // TODO
+    auto response = et.receive(MPI_ANY_TAG, MPI_ANY_SOURCE);
+    switch (response.message) {
+      // TODO
+    }
   }
 
 private:
   Config &config;
   unsigned id;
-  unsigned wine_available = 0;
+  unsigned wine_demand = 0;
+
+  MessageTransmitter<EntirePayload> et;
+  std::mutex wait_for_message_mutex;
+  std::condition_variable wait_for_message;
+  unsigned clock = 0;
+  unsigned safe_place_id;
+  unsigned critical_section_counter;
+  std::vector<bool> safe_places_free;
+  std::queue<unsigned> wait_queue;
 
   void relax() {
-    // TODO:
+    et.send(ObserverMessage::STUDENT_DOESNT_WANT_TO_PARTY_ANYMORE,
+            EntirePayload().setStudentId(id), 0);
+
+    auto duration = std::chrono::seconds(randint(1, 10));
+    std::this_thread::sleep_for(duration);
+    wine_demand = randint(1, config.max_wine_demand);
+
+    et.send(ObserverMessage::STUDENT_WANT_TO_PARTY,
+            EntirePayload().setStudentId(id).setWineAmount(wine_demand), 0);
   }
 
   void reserveSafePlace() {
-    // TODO:
+    critical_section_counter = config.students - 1;
+
+    config.forEachStudent([&](int process_id) {
+      et.send(StudentMessage::STUDENT_SAFE_PLACE_REQUEST, EntirePayload(clock),
+              process_id);
+    });
+
+    {
+      std::unique_lock<std::mutex> lock(wait_for_message_mutex);
+      wait_for_message.wait(lock);
+    }
+
+    // Critical section start
+    for (int i = 0; i < safe_places_free.size(); i++) {
+      if (safe_places_free[i]) {
+        safe_places_free[i] = false;
+        safe_place_id = i;
+        break;
+      }
+    }
+
+    config.forEachStudent([&](int process_id) {
+      et.send(StudentMessage::STUDENT_SAFE_PLACE_RESERVED,
+              EntirePayload(clock).setSafePlaceId(safe_place_id), process_id);
+    });
+
+    config.forEachStudent([&](int process_id) {
+      et.send(StudentMessage::STUDENT_SAFE_PLACE_RELEASE, EntirePayload(clock),
+              process_id);
+    });
+
+    while (!wait_queue.empty()) {
+      unsigned process_id = wait_queue.front();
+      wait_queue.pop();
+
+      et.send(StudentMessage::STUDENT_SAFE_PLACE_ACK, EntirePayload(clock),
+              process_id);
+    }
+
+    et.send(ObserverMessage::STUDENT_RESERVED_SAFE_PLACE,
+            EntirePayload().setWinemakerId(997).setStudentId(id).setSafePlaceId(
+                safe_place_id),
+            0);
   }
 
   void handleSafePlace() {

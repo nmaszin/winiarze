@@ -10,10 +10,14 @@ template <typename T, std::size_t N> struct Payload {
 };
 
 struct EntirePayload : public Payload<unsigned, 4> {
+  unsigned clock;
   unsigned winemaker_id;
   unsigned student_id;
   unsigned safe_place_id;
   unsigned wine_amount;
+
+  EntirePayload() = default;
+  EntirePayload(unsigned clock) : clock(clock) {}
 
   EntirePayload &setWinemakerId(unsigned value) {
     winemaker_id = value;
