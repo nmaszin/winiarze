@@ -4,7 +4,7 @@
 
 struct Config {
   unsigned winemakers = 5;
-  unsigned students = 10;
+  unsigned students = 5;
   unsigned safe_places = 3;
   unsigned max_wine_production = 10;
   unsigned max_wine_demand = 10;
@@ -29,4 +29,8 @@ struct Config {
       callback(i);
     }
   }
+
+  unsigned getWinemakerId(unsigned process_id) { return process_id; }
+
+  unsigned getStudentId(unsigned process_id) { return process_id - winemakers; }
 };
