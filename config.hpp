@@ -3,9 +3,9 @@
 #include <functional>
 
 struct Config {
-  unsigned winemakers = 2;
-  unsigned students = 2;
-  unsigned safe_places = 1;
+  unsigned winemakers = 5;
+  unsigned students = 10;
+  unsigned safe_places = 5;
   unsigned max_wine_production = 10;
   unsigned max_wine_demand = 10;
 

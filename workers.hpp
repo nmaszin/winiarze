@@ -204,7 +204,8 @@ private:
 class Winemaker : public WorkingProcess {
 public:
   Winemaker(Config &config, unsigned id)
-      : config(config), id(id), safe_places_free(config.safe_places, true),
+      : config(config), id(id), clock(id),
+        safe_places_free(config.safe_places, true),
         safe_places_students_available(config.safe_places, false),
         safe_places_students_ids(config.safe_places, 0),
         safe_places_students_wine_needs(config.safe_places, 0) {}
@@ -294,7 +295,7 @@ private:
   unsigned wine_available = 0;
   unsigned safe_place_id = 0;
   bool in_safe_place = false;
-  unsigned clock = 0;
+  unsigned clock;
   unsigned critical_section_counter;
   unsigned student_id;
 
@@ -481,7 +482,8 @@ private:
 class Student : public WorkingProcess {
 public:
   Student(Config &config, unsigned id)
-      : config(config), id(id), safe_places_free(config.safe_places, true),
+      : config(config), id(id), clock(id),
+        safe_places_free(config.safe_places, true),
         safe_places_winemakers_available(config.safe_places, false),
         safe_places_winemakers_id(config.safe_places, 0),
         safe_places_winemakers_wine_available(config.safe_places, 0) {}
@@ -551,6 +553,8 @@ protected:
 
       case WinemakerMessage::HERE_YOU_ARE: {
         wine_demand -= response.payload.wine_amount;
+        safe_places_winemakers_wine_available[safe_place_id] -=
+            response.payload.wine_amount; // Czy na pewno powinno to być?
         wine_gave_wait.notify_one();
         // std::cerr << "<<< UWAGA :D >>>\n";
         break;
@@ -573,7 +577,7 @@ private:
   std::mutex critical_section_wait_mutex, winemaker_wait_mutex,
       wine_gave_wait_mutex, m;
   std::condition_variable critical_section_wait, winemaker_wait, wine_gave_wait;
-  unsigned clock = 0;
+  unsigned clock;
   unsigned safe_place_id;
   unsigned critical_section_counter;
   bool want_to_enter_critical_section = false;
@@ -616,8 +620,10 @@ private:
         });
       }
       {
+        std::cerr << "$$$ " << id << " $$$ A $$$\n";
         std::unique_lock<std::mutex> lock(critical_section_wait_mutex);
         critical_section_wait.wait(lock);
+        std::cerr << "$$$ " << id << " $$$ B $$$\n";
       }
 
       {
