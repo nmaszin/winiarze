@@ -61,12 +61,10 @@ public:
       }
 
       case ObserverMessage::WINEMAKER_RESERVED_SAFE_PLACE: {
-        safe_places_membership[payload.safe_place_id].first =
-            payload.winemaker_id;
-        std::cout << "Winiarz o id "
-                  << config.getWinemakerId(payload.winemaker_id)
-                  << " zarezerwował melinę o id " << payload.safe_place_id + 1
-                  << "\n";
+        auto wid = config.getWinemakerId(payload.winemaker_id);
+        safe_places_membership[payload.safe_place_id].first = wid;
+        std::cout << "Winiarz o id " << wid << " zarezerwował melinę o id "
+                  << payload.safe_place_id + 1 << "\n";
         break;
       }
 
@@ -331,11 +329,12 @@ private:
         config.forEachWinemaker([&](int process_id) {
           if (process_id != id) {
             et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST,
-                    EntirePayload(clock), process_id);
+                    EntirePayload(clock).setWinemakerId(id), process_id);
           }
         });
       }
-      {
+
+      if (critical_section_counter > 0) {
         std::unique_lock<std::mutex> lock(critical_section_wait_mutex);
         critical_section_wait.wait(lock);
       }
@@ -443,11 +442,12 @@ private:
       config.forEachWinemaker([&](int process_id) {
         if (process_id != id) {
           et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST,
-                  EntirePayload(clock), process_id);
+                  EntirePayload(clock).setWinemakerId(id), process_id);
         }
       });
     }
-    {
+
+    if (critical_section_counter > 0) {
       std::unique_lock<std::mutex> lock(critical_section_wait_mutex);
       critical_section_wait.wait(lock);
     }
@@ -615,15 +615,16 @@ private:
         config.forEachStudent([&](int process_id) {
           if (process_id != id) {
             et.send(StudentMessage::STUDENT_SAFE_PLACE_REQUEST,
-                    EntirePayload(clock), process_id);
+                    EntirePayload(clock).setStudentId(id), process_id);
           }
         });
       }
-      {
-        std::cerr << "$$$ " << id << " $$$ A $$$\n";
+
+      if (critical_section_counter > 0) {
+        std::cerr << "$$$ student " << id << " $$$ A $$$\n";
         std::unique_lock<std::mutex> lock(critical_section_wait_mutex);
         critical_section_wait.wait(lock);
-        std::cerr << "$$$ " << id << " $$$ B $$$\n";
+        std::cerr << "$$$ student " << id << " $$$ B $$$\n";
       }
 
       {
@@ -720,14 +721,16 @@ private:
       config.forEachStudent([&](int process_id) {
         if (process_id != id) {
           et.send(StudentMessage::STUDENT_SAFE_PLACE_REQUEST,
-                  EntirePayload(clock), process_id);
+                  EntirePayload(clock).setStudentId(id), process_id);
         }
       });
     }
-    {
+
+    if (critical_section_counter > 0) {
       std::unique_lock<std::mutex> lock(critical_section_wait_mutex);
       critical_section_wait.wait(lock);
     }
+
     {
       // Critical section start
       std::unique_lock<std::mutex>(m);
