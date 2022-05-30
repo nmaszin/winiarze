@@ -110,20 +110,18 @@ public:
                   << " jednostek wina na kolejną imprezę\n";
         break;
       }
-      case ObserverMessage::STUDENT_RESERVED_SAFE_PLACE:
-        safe_places_membership[payload.safe_place_id].second =
-            payload.student_id;
-        std::cout << "Student o id " << config.getStudentId(payload.student_id)
-                  << " zarezerwował melinę o id " << payload.safe_place_id + 1
-                  << "\n";
+      case ObserverMessage::STUDENT_RESERVED_SAFE_PLACE: {
+        auto sid = config.getStudentId(payload.student_id);
+        safe_places_membership[payload.safe_place_id].second = sid;
+        std::cout << "Student o id " << sid << " zarezerwował melinę o id "
+                  << payload.safe_place_id + 1 << "\n";
         break;
-
+      }
       case ObserverMessage::STUDENT_LEFT_SAFE_PLACE:
         safe_places_membership[payload.safe_place_id].second = 0;
         std::cout << "Student o id " << config.getStudentId(payload.student_id)
                   << " opuścił melinę o id " << payload.safe_place_id + 1
-                  << " w której siedzi winiarz o id "
-                  << config.getWinemakerId(payload.winemaker_id) << "\n";
+                  << "\n";
         break;
 
       case ObserverMessage::STUDENT_DOESNT_WANT_TO_PARTY_ANYMORE: {
@@ -176,21 +174,13 @@ private:
     }
   }
 
-  template <typename T> void printStudentId(T value) {
-    if (value == 0) {
-      std::cout << 'X';
-    } else {
-      std::cout << value - config.winemakers;
-    }
-  }
-
   template <typename T, typename Q>
   void printVector(const std::vector<std::pair<T, Q>> &array) {
     for (const auto &e : array) {
       std::cout << '(';
       printScalar(e.first);
       std::cout << ", ";
-      printStudentId(e.second);
+      printScalar(e.second);
       std::cout << ")\t";
     }
   }
@@ -235,8 +225,9 @@ protected:
       std::unique_lock<std::mutex>(m);
       switch (response.message) {
       case WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST:
-        // Czy tu nie powinien być mutex?
-        if (!want_to_enter_critical_section || response.payload.clock > clock) {
+        if (!want_to_enter_critical_section || response.payload.clock > clock ||
+            (response.payload.clock == clock &&
+             response.payload.winemaker_id > id)) {
           et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK,
                   EntirePayload(clock), response.source);
           clock = std::max(clock, response.payload.clock);
@@ -435,6 +426,8 @@ private:
               0);
 
       wine_available -= wine_given;
+      safe_places_students_wine_needs[safe_place_id] -=
+          wine_given; // Czy to o to chodziło?
     }
 
     m.unlock();
@@ -465,7 +458,8 @@ private:
       config.forAll([&](int process_id) {
         if (process_id != id && process_id != 0) {
           et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_LEFT,
-                  EntirePayload().setSafePlaceId(safe_place_id), process_id);
+                  EntirePayload(clock).setSafePlaceId(safe_place_id),
+                  process_id);
         }
       });
 
@@ -508,7 +502,9 @@ protected:
       auto response = et.receive(MPI_ANY_TAG, MPI_ANY_SOURCE);
       switch (response.message) {
       case StudentMessage::STUDENT_SAFE_PLACE_REQUEST:
-        if (!want_to_enter_critical_section || response.payload.clock > clock) {
+        if (!want_to_enter_critical_section || response.payload.clock > clock ||
+            (response.payload.clock == clock &&
+             response.payload.student_id > id)) {
           et.send(StudentMessage::STUDENT_SAFE_PLACE_ACK, EntirePayload(clock),
                   response.source);
           clock = std::max(clock, response.payload.clock + 1);
@@ -681,8 +677,6 @@ private:
   void handleSafePlace() {
     m.lock();
     while (wine_demand > 0) {
-      std::cerr << "[[[ " << wine_demand << "]]]\n";
-
       if (wait_for_winemaker) {
         m.unlock();
         // std::cerr << "[student:" << id << "] Muszę teraz poczekać na
