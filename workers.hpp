@@ -621,10 +621,10 @@ private:
       }
 
       if (critical_section_counter > 0) {
-        std::cerr << "$$$ student " << id << " $$$ A $$$\n";
+        // std::cerr << "$$$ student " << id << " $$$ A $$$\n";
         std::unique_lock<std::mutex> lock(critical_section_wait_mutex);
         critical_section_wait.wait(lock);
-        std::cerr << "$$$ student " << id << " $$$ B $$$\n";
+        // std::cerr << "$$$ student " << id << " $$$ B $$$\n";
       }
 
       {
