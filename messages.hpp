@@ -48,7 +48,10 @@ struct WinemakerMessage {
     WINEMAKER_SAFE_PLACE_LEFT,
 
     // Winiarz wręcza studentowi porcję wina (ile wina)
-    HERE_YOU_ARE
+    HERE_YOU_ARE,
+
+    // Zapotrzebowanie studenta się zmniejszyło (id meliny, ile wina)
+    STUDENT_WINE_NEEDS_DECREASED,
   };
 };
 
@@ -67,5 +70,9 @@ struct StudentMessage {
 
     // Student opuszcza melinę (id meliny)
     STUDENT_SAFE_PLACE_LEFT,
+
+    // Ilość wina posiadanego przez winiarza się zmniejszyła (id meliny, ile
+    // wina)
+    WINEMAKER_WINE_AMOUNT_DECREASED,
   };
 };

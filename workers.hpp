@@ -254,7 +254,7 @@ protected:
       case WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK:
         critical_section_counter--;
         if (critical_section_counter == 0) {
-          critical_section_wait.notify_one();
+          critical_section_wait.notify_all();
         }
         break;
 
@@ -273,7 +273,7 @@ protected:
         safe_places_students_wine_needs[spid] = response.payload.wine_amount;
 
         if (in_safe_place && spid == safe_place_id) {
-          student_wait.notify_one();
+          student_wait.notify_all();
         }
 
         break;
@@ -435,6 +435,18 @@ private:
 
       wine_available -= wine_given;
       safe_places_students_wine_needs[safe_place_id] -= wine_given;
+
+      et.updateClock();
+      config.forEachWinemaker([&](int process_id) {
+        if (process_id != pid) {
+          et.multicast(WinemakerMessage::STUDENT_WINE_NEEDS_DECREASED,
+                       EntirePayload()
+                           .setSafePlaceId(safe_place_id)
+                           .setWineAmount(wine_given),
+                       process_id);
+        }
+      });
+      et.updateClock();
     }
 
     m.unlock();
@@ -444,6 +456,8 @@ private:
     std::unique_lock<std::mutex>(m);
     safe_places_free[safe_place_id] = true;
     in_safe_place = false;
+
+    et.updateClock();
     config.forEachWinemakerAndStudent([&](int process_id) {
       if (process_id != pid) {
         et.multicast(WinemakerMessage::WINEMAKER_SAFE_PLACE_LEFT,
@@ -498,7 +512,7 @@ protected:
       case StudentMessage::STUDENT_SAFE_PLACE_ACK: {
         critical_section_counter--;
         if (critical_section_counter == 0) {
-          critical_section_wait.notify_one();
+          critical_section_wait.notify_all();
         }
         break;
       }
@@ -520,7 +534,7 @@ protected:
             response.payload.wine_amount;
 
         if (in_safe_place && safe_place_id == spid) {
-          winemaker_wait.notify_one();
+          winemaker_wait.notify_all();
         }
 
         break;
@@ -536,8 +550,26 @@ protected:
       case WinemakerMessage::HERE_YOU_ARE: {
         auto wine = response.payload.wine_amount;
         wine_demand -= wine;
+
+        // std::cerr << "[Student] wine_demand = " << wine_demand << "\n";
         safe_places_winemakers_wine_available[safe_place_id] -= wine;
-        wine_gave_wait.notify_one();
+
+        et.updateClock();
+        config.forEachStudent([&](int process_id) {
+          if (process_id != pid) {
+            et.multicast(StudentMessage::WINEMAKER_WINE_AMOUNT_DECREASED,
+                         EntirePayload()
+                             .setSafePlaceId(safe_place_id)
+                             .setWineAmount(wine),
+                         process_id);
+          }
+        });
+        et.updateClock();
+
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        // std::cerr << "[Student] Powiadamiam\n";
+        wine_gave_wait.notify_all();
         break;
       }
       }
@@ -559,7 +591,7 @@ private:
       wine_gave_wait_mutex, m;
   std::condition_variable critical_section_wait, winemaker_wait, wine_gave_wait;
   unsigned safe_place_id;
-  unsigned critical_section_counter;
+  unsigned critical_section_counter, process_id;
   bool want_to_enter_critical_section = false;
   bool wait_for_winemaker = true;
   bool in_safe_place = false;
@@ -670,17 +702,22 @@ private:
 
       m.unlock();
       {
+        // std::cerr << "[xD] start\n";
         std::unique_lock<std::mutex> lock(wine_gave_wait_mutex);
+        // std::cerr << "[xD] środek\n";
         wine_gave_wait.wait(lock);
+        // std::cerr << "[xD] koniec\n";
       }
       m.lock();
     }
+    // std::cerr << "[Student] No to kończymy\n";
     m.unlock();
   }
 
   void leaveSafePlace() {
-    // Critical section start
-    std::unique_lock<std::mutex>(m);
+    // std::cerr << "[Student] Czekam na mutex\n";
+    std::lock_guard<std::mutex> lock(m);
+    // std::cerr << "[Student] już nie czekam na mutex\n";
     safe_places_free[safe_place_id] = true;
     in_safe_place = false;
     config.forEachWinemakerAndStudent([&](int process_id) {
