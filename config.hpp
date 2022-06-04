@@ -1,36 +1,45 @@
 #pragma once
 
 #include <functional>
+#include <vector>
 
 struct Config {
+  unsigned observers = 1;
   unsigned winemakers = 1;
   unsigned students = 1;
   unsigned safe_places = 2;
   unsigned max_wine_production = 10;
   unsigned max_wine_demand = 10;
 
-  unsigned getTotalProcessesNumber() { return winemakers + students + 1; }
+  unsigned getTotalProcessesNumber() {
+    return observers + winemakers + students;
+  }
+
+  unsigned getObserverIdFromPid(unsigned process_id) { return process_id; }
+
+  unsigned getWinemakerIdFromPid(unsigned process_id) {
+    return process_id - observers;
+  }
+
+  unsigned getStudentIdFromPid(unsigned process_id) {
+    return process_id - observers - winemakers;
+  }
 
   void forEachWinemaker(std::function<void(int)> callback) {
     for (int i = 0; i < winemakers; i++) {
-      callback(i + 1);
+      callback(i + observers);
     }
   }
 
   void forEachStudent(std::function<void(int)> callback) {
     for (int i = 0; i < students; i++) {
-      callback(i + 1 + winemakers);
+      callback(i + observers + winemakers);
     }
   }
 
-  void forAll(std::function<void(int)> callback) {
-    auto total = getTotalProcessesNumber();
-    for (int i = 0; i < total; i++) {
-      callback(i);
+  void forEachWinemakerAndStudent(std::function<void(int)> callback) {
+    for (int i = 0; i < winemakers + students; i++) {
+      callback(i + observers);
     }
   }
-
-  unsigned getWinemakerId(unsigned process_id) { return process_id; }
-
-  unsigned getStudentId(unsigned process_id) { return process_id - winemakers; }
 };

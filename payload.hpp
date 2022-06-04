@@ -7,25 +7,25 @@ template <typename T, std::size_t N> struct Payload {
   virtual MPI_Datatype getType() const = 0;
   virtual std::array<T, N> serialize() const = 0;
   virtual void deserialize(const std::array<T, N> &serialized) = 0;
+
+  virtual T getClock() const = 0;
+  virtual void setClock(T value) = 0;
 };
 
-struct EntirePayload : public Payload<unsigned, 4> {
+struct EntirePayload : public Payload<unsigned, 5> {
   unsigned clock;
-  unsigned winemaker_id;
-  unsigned student_id;
+  unsigned winemaker_pid;
+  unsigned student_pid;
   unsigned safe_place_id;
   unsigned wine_amount;
 
-  EntirePayload() = default;
-  EntirePayload(unsigned clock) : clock(clock) {}
-
-  EntirePayload &setWinemakerId(unsigned value) {
-    winemaker_id = value;
+  EntirePayload &setWinemakerPid(unsigned value) {
+    winemaker_pid = value;
     return *this;
   }
 
-  EntirePayload &setStudentId(unsigned value) {
-    student_id = value;
+  EntirePayload &setStudentPid(unsigned value) {
+    student_pid = value;
     return *this;
   }
 
@@ -40,29 +40,19 @@ struct EntirePayload : public Payload<unsigned, 4> {
 
   MPI_Datatype getType() const override { return MPI_UNSIGNED; }
 
-  std::array<unsigned, 4> serialize() const override {
-    return {winemaker_id, student_id, safe_place_id, wine_amount};
+  std::array<unsigned, 5> serialize() const override {
+    return {clock, winemaker_pid, student_pid, safe_place_id, wine_amount};
   }
 
-  void deserialize(const std::array<unsigned, 4> &serialized) override {
-    winemaker_id = serialized[0];
-    student_id = serialized[1];
-    safe_place_id = serialized[2];
-    wine_amount = serialized[3];
-  }
-};
-
-struct ClockOnlyPayload : public Payload<unsigned, 1> {
-  unsigned clock;
-
-  ClockOnlyPayload() = default;
-  ClockOnlyPayload(unsigned clock) : clock(clock) {}
-
-  MPI_Datatype getType() const override { return MPI_UNSIGNED; }
-
-  std::array<unsigned, 1> serialize() const override { return {clock}; }
-
-  void deserialize(const std::array<unsigned, 1> &serialized) override {
+  void deserialize(const std::array<unsigned, 5> &serialized) override {
     clock = serialized[0];
+    winemaker_pid = serialized[1];
+    student_pid = serialized[2];
+    safe_place_id = serialized[3];
+    wine_amount = serialized[4];
   }
+
+  unsigned getClock() const override { return clock; }
+
+  void setClock(unsigned value) override { clock = value; };
 };
