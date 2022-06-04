@@ -5,9 +5,9 @@
 
 struct Config {
   unsigned observers = 1;
-  unsigned winemakers = 1;
-  unsigned students = 1;
-  unsigned safe_places = 2;
+  unsigned winemakers = 5;
+  unsigned students = 5;
+  unsigned safe_places = 3;
   unsigned max_wine_production = 10;
   unsigned max_wine_demand = 10;
 

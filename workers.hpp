@@ -254,7 +254,7 @@ protected:
       case WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK:
         critical_section_counter--;
         if (critical_section_counter == 0) {
-          critical_section_wait.notify_all();
+          critical_section_wait.notify_one();
         }
         break;
 
@@ -273,7 +273,7 @@ protected:
         safe_places_students_wine_needs[spid] = response.payload.wine_amount;
 
         if (in_safe_place && spid == safe_place_id) {
-          student_wait.notify_all();
+          student_wait.notify_one();
         }
 
         break;
@@ -340,13 +340,18 @@ private:
         want_to_enter_critical_section = true;
         critical_section_counter = config.winemakers - 1;
 
+        auto payload = EntirePayload();
+        et.updateClock(payload);
+
         config.forEachWinemaker([&](int process_id) {
           if (process_id != pid) {
+            auto payload_copy = payload;
+            payload_copy.setWinemakerPid(pid);
+
             et.multicast(WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST,
-                         EntirePayload().setWinemakerPid(pid), process_id);
+                         payload_copy, process_id);
           }
         });
-        et.updateClock();
       }
 
       if (critical_section_counter > 0) {
@@ -372,16 +377,18 @@ private:
         }
 
         if (ok) {
+          auto payload = EntirePayload()
+                             .setSafePlaceId(safe_place_id)
+                             .setWineAmount(wine_available);
+          et.updateClock(payload);
+
           config.forEachWinemakerAndStudent([&](int process_id) {
             if (process_id != pid) {
+              auto payload_copy = payload;
               et.multicast(WinemakerMessage::WINEMAKER_SAFE_PLACE_RESERVED,
-                           EntirePayload()
-                               .setSafePlaceId(safe_place_id)
-                               .setWineAmount(wine_available),
-                           process_id);
+                           payload_copy, process_id);
             }
           });
-          et.updateClock();
 
           if (safe_places_students_available[safe_place_id]) {
             wait_for_student = false;
@@ -436,17 +443,17 @@ private:
       wine_available -= wine_given;
       safe_places_students_wine_needs[safe_place_id] -= wine_given;
 
-      et.updateClock();
+      auto payload = EntirePayload()
+                         .setSafePlaceId(safe_place_id)
+                         .setWineAmount(wine_given);
+      et.updateClock(payload);
       config.forEachWinemaker([&](int process_id) {
         if (process_id != pid) {
+          auto payload_copy = payload;
           et.multicast(WinemakerMessage::STUDENT_WINE_NEEDS_DECREASED,
-                       EntirePayload()
-                           .setSafePlaceId(safe_place_id)
-                           .setWineAmount(wine_given),
-                       process_id);
+                       payload_copy, process_id);
         }
       });
-      et.updateClock();
     }
 
     m.unlock();
@@ -457,14 +464,15 @@ private:
     safe_places_free[safe_place_id] = true;
     in_safe_place = false;
 
-    et.updateClock();
+    auto payload = EntirePayload().setSafePlaceId(safe_place_id);
+    et.updateClock(payload);
     config.forEachWinemakerAndStudent([&](int process_id) {
       if (process_id != pid) {
-        et.multicast(WinemakerMessage::WINEMAKER_SAFE_PLACE_LEFT,
-                     EntirePayload().setSafePlaceId(safe_place_id), process_id);
+        auto payload_copy = payload;
+        et.multicast(WinemakerMessage::WINEMAKER_SAFE_PLACE_LEFT, payload_copy,
+                     process_id);
       }
     });
-    et.updateClock();
 
     et.send(ObserverMessage::WINEMAKER_SAFE_PLACE_LEFT,
             EntirePayload().setWinemakerPid(pid).setSafePlaceId(safe_place_id),
@@ -512,7 +520,7 @@ protected:
       case StudentMessage::STUDENT_SAFE_PLACE_ACK: {
         critical_section_counter--;
         if (critical_section_counter == 0) {
-          critical_section_wait.notify_all();
+          critical_section_wait.notify_one();
         }
         break;
       }
@@ -534,7 +542,7 @@ protected:
             response.payload.wine_amount;
 
         if (in_safe_place && safe_place_id == spid) {
-          winemaker_wait.notify_all();
+          winemaker_wait.notify_one();
         }
 
         break;
@@ -551,25 +559,22 @@ protected:
         auto wine = response.payload.wine_amount;
         wine_demand -= wine;
 
-        // std::cerr << "[Student] wine_demand = " << wine_demand << "\n";
+        std::cerr << "[Student] wine_demand = " << wine_demand << "\n";
         safe_places_winemakers_wine_available[safe_place_id] -= wine;
 
-        et.updateClock();
+        auto payload =
+            EntirePayload().setSafePlaceId(safe_place_id).setWineAmount(wine);
+        et.updateClock(payload);
         config.forEachStudent([&](int process_id) {
           if (process_id != pid) {
+            auto payload_copy = payload;
             et.multicast(StudentMessage::WINEMAKER_WINE_AMOUNT_DECREASED,
-                         EntirePayload()
-                             .setSafePlaceId(safe_place_id)
-                             .setWineAmount(wine),
-                         process_id);
+                         payload_copy, process_id);
           }
         });
-        et.updateClock();
 
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-
-        // std::cerr << "[Student] Powiadamiam\n";
-        wine_gave_wait.notify_all();
+        std::cerr << "[Student] Powiadamiam\n";
+        wine_gave_wait.notify_one();
         break;
       }
       }
@@ -623,13 +628,15 @@ private:
         want_to_enter_critical_section = true;
         critical_section_counter = config.students - 1;
 
+        auto payload = EntirePayload();
+        et.updateClock(payload);
         config.forEachStudent([&](int process_id) {
           if (process_id != pid) {
+            auto payload_copy = payload;
             et.multicast(StudentMessage::STUDENT_SAFE_PLACE_REQUEST,
-                         EntirePayload().setStudentPid(pid), process_id);
+                         payload_copy.setStudentPid(pid), process_id);
           }
         });
-        et.updateClock();
       }
 
       if (critical_section_counter > 0) {
@@ -654,16 +661,17 @@ private:
         }
 
         if (ok) {
+          auto payload = EntirePayload()
+                             .setSafePlaceId(safe_place_id)
+                             .setWineAmount(wine_demand);
+          et.updateClock(payload);
           config.forEachWinemakerAndStudent([&](int process_id) {
             if (process_id != pid) {
+              auto payload_copy = payload;
               et.multicast(StudentMessage::STUDENT_SAFE_PLACE_RESERVED,
-                           EntirePayload()
-                               .setSafePlaceId(safe_place_id)
-                               .setWineAmount(wine_demand),
-                           process_id);
+                           payload_copy, process_id);
             }
           });
-          et.updateClock();
 
           if (safe_places_winemakers_available[safe_place_id]) {
             wait_for_winemaker = false;
@@ -702,31 +710,34 @@ private:
 
       m.unlock();
       {
-        // std::cerr << "[xD] start\n";
+        std::cerr << "[xD] start\n";
         std::unique_lock<std::mutex> lock(wine_gave_wait_mutex);
-        // std::cerr << "[xD] środek\n";
+        std::cerr << "[xD] środek\n";
         wine_gave_wait.wait(lock);
-        // std::cerr << "[xD] koniec\n";
+        std::cerr << "[xD] koniec\n";
       }
       m.lock();
     }
-    // std::cerr << "[Student] No to kończymy\n";
+    std::cerr << "[Student] No to kończymy\n";
     m.unlock();
   }
 
   void leaveSafePlace() {
-    // std::cerr << "[Student] Czekam na mutex\n";
+    std::cerr << "[Student] Czekam na mutex\n";
     std::lock_guard<std::mutex> lock(m);
-    // std::cerr << "[Student] już nie czekam na mutex\n";
+    std::cerr << "[Student] już nie czekam na mutex\n";
     safe_places_free[safe_place_id] = true;
     in_safe_place = false;
+
+    auto payload = EntirePayload().setSafePlaceId(safe_place_id);
+    et.updateClock(payload);
     config.forEachWinemakerAndStudent([&](int process_id) {
       if (process_id != pid) {
-        et.multicast(StudentMessage::STUDENT_SAFE_PLACE_LEFT,
-                     EntirePayload().setSafePlaceId(safe_place_id), process_id);
+        auto payload_copy = payload;
+        et.multicast(StudentMessage::STUDENT_SAFE_PLACE_LEFT, payload_copy,
+                     process_id);
       }
     });
-    et.updateClock();
 
     et.send(ObserverMessage::STUDENT_SAFE_PLACE_LEFT,
             EntirePayload().setStudentPid(pid).setSafePlaceId(safe_place_id),

@@ -49,8 +49,9 @@ struct MessageTransmitter {
     return response;
   }
 
-  void updateClock() {
+  template <typename PayloadType> void updateClock(PayloadType &payload) {
     std::lock_guard<std::mutex> lock(clock_mutex);
+    payload.setClock(clock);
     clock++;
   }
 
@@ -59,10 +60,4 @@ struct MessageTransmitter {
 private:
   unsigned clock = 0;
   std::mutex clock_mutex;
-
-  template <typename PayloadType> void updateClock(PayloadType &payload) {
-    std::lock_guard<std::mutex> lock(clock_mutex);
-    payload.setClock(clock);
-    clock++;
-  }
 };
