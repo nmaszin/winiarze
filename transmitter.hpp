@@ -23,6 +23,7 @@ struct MessageTransmitter {
   void multicast(int message, PayloadType &&payload, int dest,
                  MPI_Comm comm = MPI_COMM_WORLD) {
     auto serialized = payload.serialize();
+    std::cerr << "[clock] " << payload.clock << "\n";
     MPI_Send(serialized.data(), serialized.size(), payload.getType(), dest,
              message, comm);
   }
@@ -51,8 +52,8 @@ struct MessageTransmitter {
 
   template <typename PayloadType> void updateClock(PayloadType &payload) {
     std::lock_guard<std::mutex> lock(clock_mutex);
-    payload.setClock(clock);
     clock++;
+    payload.setClock(clock);
   }
 
   unsigned getClock() { return clock; }
