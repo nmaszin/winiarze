@@ -2,77 +2,46 @@
 
 struct ObserverMessage {
   enum {
-    // Winiarz rozpoczął produkcję wina (id winiarza)
-    WINEMAKER_PRODUCTION_STARTED,
+    // Winiarz rozpoczął produkcję wina
+    // > EntirePayload(clock, winemaker_pid)
+    WINEMAKER_PRODUCTION_STARTED = 100,
 
-    // Winiarz zakończył produkcję wina (id winiarza, ile jest tego wina)
-    WINEMAKER_PRODUCTION_END = 100,
+    // Winiarz zakończył produkcję wina
+    // > EntirePayload(clock, winemaker_pid, wine_amount)
+    WINEMAKER_PRODUCTION_END,
 
-    // Winiarz uzyskał dostęp do meliny (id winiarza, numer meliny)
-    WINEMAKER_SAFE_PLACE_RESERVED,
-
-    // Winiarz opuścił melinę (id winiarza, numer meliny)
-    WINEMAKER_SAFE_PLACE_LEFT,
-
-    // Winiarz dał wino studentowi
-    // (id winiarza, id studenta, id meliny, ile wina)
-    WINEMAKER_GAVE_WINE_TO_STUDENT,
-
-    // Student nie chce już więcej imprezować i leczy kaca (id studenta)
+    // Student nie chce już więcej imprezować i leczy kaca
+    // > EntirePayload(clock, student_pid)
     STUDENT_DOESNT_WANT_TO_PARTY_ANYMORE,
 
-    // Student jest gotowy do zbierania wina (id studenta, ile wina)
+    // Student jest gotowy do zbierania wina
+    // > EntirePayload(clock, student_pid, wine_amount)
     STUDENT_WANT_TO_PARTY,
 
-    // Student zarezerwował melinę (id studenta, id meliny)
-    STUDENT_SAFE_PLACE_RESERVED,
+    // Winiarz zaniósł wino do meliny
+    // > EntirePayload(clock, winemaker_pid, safeplace_id, wine_amount)
+    WINEMAKER_SAFE_PLACE_UPDATED,
 
-    // Student opuścił melinę (id studenta, id meliny)
-    STUDENT_SAFE_PLACE_LEFT
+    // Student odebrał wino z meliny
+    // > EntirePayload(clock, student_pid, safeplace_id, wine_amount)
+    STUDENT_SAFE_PLACE_UPDATED,
   };
 };
 
-struct WinemakerMessage {
+struct CommonMessage {
   enum {
-    // Winiarz chce uzyskać dostęp do sekcji krytycznej związanej z meliną
-    // (clock, winemaker_id)
-    WINEMAKER_SAFE_PLACE_REQUEST = 200,
+    // Winiarz/Student chce wejść do sekcji krytycznej
+    // > EntirePayload(clock, pid)
+    // UWAGA: student_pid i winemaker_pid muszą być takie same!
+    REQUEST = 200,
 
-    // Zgoda na wejście do sekcji krytycznej związanej z meliną
-    WINEMAKER_SAFE_PLACE_ACK,
+    // Zgoda na wejście do sekcji krytycznej
+    // > EntirePayload(clock)
+    ACK,
 
-    // Winiarz zarezerwował melinę (id meliny, ile wina)
-    WINEMAKER_SAFE_PLACE_RESERVED,
-
-    // Winiarz opuścił melinę (id meliny)
-    WINEMAKER_SAFE_PLACE_LEFT,
-
-    // Winiarz wręcza studentowi porcję wina (ile wina)
-    HERE_YOU_ARE,
-
-    // Zapotrzebowanie studenta się zmniejszyło (id meliny, ile wina)
-    STUDENT_WINE_NEEDS_DECREASED,
-  };
-};
-
-struct StudentMessage {
-  enum {
-    // Student chce uzyskać dostęp do sekcji krytycznej związanej z meliną
-    // (clock, winemaker_id)
-    STUDENT_SAFE_PLACE_REQUEST = 300,
-
-    // Student uzyskał zgodę na wejście do sekcji krytycznej związanej z meliną
-    STUDENT_SAFE_PLACE_ACK,
-
-    // Student ogłasza innym studentom, że zarezerwował melinę (id meliny, ile
-    // wina)
-    STUDENT_SAFE_PLACE_RESERVED,
-
-    // Student opuszcza melinę (id meliny)
-    STUDENT_SAFE_PLACE_LEFT,
-
-    // Ilość wina posiadanego przez winiarza się zmniejszyła (id meliny, ile
-    // wina)
-    WINEMAKER_WINE_AMOUNT_DECREASED,
-  };
-};
+    // Zmiana ilości dostępnego wina w danej melinie
+    // > EntirePayload(clock, safe_place_id, wine_amount)
+    // Uwaga: tu nie inkrementujemy/dekrementujemy, tylko przypisujemy
+    SAFE_PLACE_UPDATED,
+  }
+}

@@ -35,68 +35,31 @@ private:
 };
 
 class Observer : public Runnable {
+  Config &config;
+  unsigned pid;
+  MessageTransmitter t;
+
+  std::vector<unsigned> winemakers_wine_amounts;
+  std::vector<unsigned> students_wine_needs;
+  std::vector<unsigned> safe_places_wine_amounts;
+  std::vector<bool> winemakers_working;
+  std::vector<bool> students_resting;
+  unsigned free_safe_places = 0;
+
 public:
-  Observer(Config &config, unsigned observer_pid)
-      : config(config), winemakers_wine_amounts(config.winemakers, 0),
+  Observer(Config &config, unsigned pid)
+      : config(config), pid(pid), winemakers_wine_amounts(config.winemakers, 0),
         students_wine_needs(config.students, 0),
-        safe_places_winemakers_available(config.safe_places, false),
-        safe_places_students_available(config.safe_places, false),
-        safe_places_winemakers_ids(config.safe_places, 0),
-        safe_places_students_ids(config.safe_places, 0),
+        safe_places_wine_amounts(config.safe_places, 0),
         winemakers_working(config.winemakers, false),
-        students_rest(config.students, false) {}
+        students_resting(config.students, false) {}
 
   void run() override {
     while (true) {
-      auto response = et.receive<EntirePayload>(MPI_ANY_TAG, MPI_ANY_SOURCE);
-      const auto &payload = response.payload;
+      auto response = t.receive<EntirePayload>(MPI_ANY_TAG, MPI_ANY_SOURCE);
+      const auto &payload = response.paylod;
 
       switch (response.message) {
-      case ObserverMessage::WINEMAKER_PRODUCTION_END: {
-        auto wid = config.getWinemakerIdFromPid(payload.winemaker_pid);
-        winemakers_wine_amounts[wid] = payload.wine_amount;
-        winemakers_working[wid] = false;
-
-        std::cout << "Winiarz o id " << wid + 1
-                  << " zakończył produkcję i wyprodukował "
-                  << payload.wine_amount << " jednostek wina\n";
-        break;
-      }
-
-      case ObserverMessage::WINEMAKER_SAFE_PLACE_RESERVED: {
-        auto wid = config.getWinemakerIdFromPid(payload.winemaker_pid);
-        auto spid = payload.safe_place_id;
-        safe_places_winemakers_available[spid] = true;
-        safe_places_winemakers_ids[spid] = wid + 1;
-
-        std::cout << "Winiarz o id " << wid + 1 << " zarezerwował melinę o id "
-                  << payload.safe_place_id + 1 << "\n";
-        break;
-      }
-
-      case ObserverMessage::WINEMAKER_SAFE_PLACE_LEFT: {
-        auto wid = config.getWinemakerIdFromPid(payload.winemaker_pid);
-        auto spid = payload.safe_place_id;
-        safe_places_winemakers_available[spid] = false;
-        safe_places_winemakers_ids[spid] = 0;
-
-        std::cout << "Winiarz o id " << wid + 1 << " opuścił melinę o id "
-                  << spid + 1 << "\n";
-        break;
-      }
-      case ObserverMessage::WINEMAKER_GAVE_WINE_TO_STUDENT: {
-        auto sid = config.getStudentIdFromPid(payload.student_pid);
-        auto wid = config.getWinemakerIdFromPid(payload.winemaker_pid);
-        auto spid = payload.safe_place_id;
-
-        students_wine_needs[sid] -= payload.wine_amount;
-        winemakers_wine_amounts[wid] -= payload.wine_amount;
-
-        std::cout << "Winiarz o id " << wid + 1 << " dał studentowi o id "
-                  << sid + 1 << " wino w ilości " << payload.wine_amount
-                  << " w melinie o id " << spid + 1 << "\n";
-        break;
-      }
       case ObserverMessage::WINEMAKER_PRODUCTION_STARTED: {
         auto wid = config.getWinemakerIdFromPid(payload.winemaker_pid);
         winemakers_working[wid] = true;
@@ -104,41 +67,74 @@ public:
         break;
       }
 
+      case ObserverMessage::WINEMAKER_PRODUCTION_END: {
+        auto wid = config.getWinemakerIdFromPid(payload.winemaker_pid);
+        winemakers_working[wid] = false;
+        winemakers_wine_amounts[wid] = payload.wine_amount;
+
+        std::cout << "Winiarz o id " << wid + 1
+                  << " zakończył produkcję i wyprodukował "
+                  << payload.wine_amount << " jednostek wina\n";
+
+        break;
+      }
+
+      case ObserverMessage::STUDENT_DOESNT_WANT_TO_PARTY_ANYMORE: {
+        auto sid = config.getStudentIdFromPid(payload.student_pid);
+        students_resting[sid] = true;
+        std::cout << "Student o id " << sid + 1 << " ma kaca\n";
+        break;
+      }
+
       case ObserverMessage::STUDENT_WANT_TO_PARTY: {
         auto sid = config.getStudentIdFromPid(payload.student_pid);
+        students_resting[sid] = false;
         students_wine_needs[sid] = payload.wine_amount;
-        students_rest[sid] = false;
 
         std::cout << "Student o id " << sid + 1
                   << " wyleczył kaca i potrzebuje " << payload.wine_amount
                   << " jednostek wina na kolejną imprezę\n";
         break;
       }
-      case ObserverMessage::STUDENT_SAFE_PLACE_RESERVED: {
-        auto sid = config.getStudentIdFromPid(payload.student_pid);
+
+      case ObserverMessage::WINEMAKER_SAFE_PLACE_UPDATED: {
+        auto wid = config.getWinemakerIdFromPid(payload.winemaker_pid);
         auto spid = payload.safe_place_id;
+        auto &r = safe_places_wine_amounts[spid];
 
-        safe_places_students_available[spid] = true;
-        safe_places_students_ids[spid] = sid + 1;
+        auto old_value = r;
+        r += payload.wine_amount;
 
-        std::cout << "Student o id " << sid + 1 << " zarezerwował melinę o id "
+        if (old_value == 0) {
+          free_safe_places--;
+        }
+
+        std::cout << "Winiarz o id " << wid + 1 << " przyniósł "
+                  << payload.wine_amount << " jednostek wina, do meliny nr "
                   << spid + 1 << "\n";
+
+        std::cout << "Aktualna liczba pustych melin to " << free_safe_places
+                  << "\n";
         break;
       }
-      case ObserverMessage::STUDENT_SAFE_PLACE_LEFT: {
-        auto sid = config.getStudentIdFromPid(payload.student_pid);
-        auto spid = payload.safe_place_id;
 
-        safe_places_students_available[spid] = false;
-        safe_places_students_ids[spid] = 0;
-        std::cout << "Student o id " << sid + 1 << " opuścił melinę o id "
+      case ObserverMessage::STUDENT_SAFE_PLACE_UPDATED: {
+        auto sid = config.getWinemakerIdFromPid(payload.student_pid);
+        auto spid = payload.safe_place_id;
+        auto &r = safe_places_wine_amounts[spid];
+
+        r -= paylod.wine_amount;
+        auto new_value = r;
+        if (new_value == 0) {
+          free_safe_places++;
+        }
+
+        std::cout << "Student o id " << sid + 1 << " zabrał "
+                  << payload.wine_amount << " jednostek wina, z meliny nr "
                   << spid + 1 << "\n";
-        break;
-      }
-      case ObserverMessage::STUDENT_DOESNT_WANT_TO_PARTY_ANYMORE: {
-        auto sid = config.getStudentIdFromPid(payload.student_pid);
-        students_rest[sid] = true;
-        std::cout << "Student o id " << sid + 1 << " ma kaca\n";
+
+        std::cout << "Aktualna liczba pustych melin to " << free_safe_places
+                  << "\n";
         break;
       }
       }
@@ -148,7 +144,6 @@ public:
     }
   }
 
-private:
   void printState() {
     std::cout << "Aktualny stan:\n";
 
@@ -171,20 +166,9 @@ private:
     }
     std::cout << '\n';
 
-    std::cout << "\tMeliny:  \t";
+    std::cout << "\t Meliny:   \t";
     for (unsigned i = 0; i < config.safe_places; i++) {
-      if (safe_places_winemakers_available[i]) {
-        std::cout << safe_places_winemakers_ids[i];
-      } else {
-        std::cout << "-";
-      }
-      std::cout << "/";
-      if (safe_places_students_available[i]) {
-        std::cout << safe_places_students_ids[i];
-      } else {
-        std::cout << "-";
-      }
-      std::cout << "\t";
+      std::cout << safe_places_wine_amounts[i] << "\t";
     }
     std::cout << '\n';
 
@@ -198,289 +182,250 @@ private:
     }
     std::cout << '\n';
   }
-
-  Config &config;
-
-  std::vector<unsigned> winemakers_wine_amounts;
-  std::vector<unsigned> students_wine_needs;
-  std::vector<unsigned> safe_places_winemakers_ids;
-  std::vector<unsigned> safe_places_students_ids;
-  std::vector<bool> winemakers_working;
-  std::vector<bool> students_rest;
-  std::vector<bool> safe_places_winemakers_available;
-  std::vector<bool> safe_places_students_available;
-
-  MessageTransmitter et;
 };
 
 class Winemaker : public WorkingProcess {
+  Config &config;
+  unsigned pid;
+  MessageTransmitter t;
+
+  unsigned wine_available = 0;
+  unsigned safe_place_id;
+  std::vector<unsigned> safe_places_wine_amounts(config.safe_places, 0);
+  unsigned free_safe_places;
+
+  bool want_to_enter_critical_section = false;
+  std::queue<int> wait_queue;
+  std::mutex m, critical_section_wait_mutex;
+  std::condition_variable critical_section_wait;
+  unsigned ack_counter = 0;
+
 public:
   Winemaker(Config &config, unsigned pid)
-      : config(config), pid(pid), safe_places_free(config.safe_places, true),
-        safe_places_students_available(config.safe_places, false),
-        safe_places_students_ids(config.safe_places, 0),
-        safe_places_students_wine_needs(config.safe_places, 0) {}
+      : config(config), pid(pid), free_safe_places(config.safe_places) {}
 
 protected:
   void foregroundTask() override {
     while (true) {
       makeWine();
-      reserveSafePlace();
       handleSafePlace();
-      leaveSafePlace();
     }
   }
 
   void backgroundTask() override {
     while (true) {
       auto response = et.receive<EntirePayload>(MPI_ANY_TAG, MPI_ANY_SOURCE);
-      std::unique_lock<std::mutex>(m);
-      switch (response.message) {
-      case WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST: {
-        auto opponent_clock = response.payload.clock;
-        auto my_clock = response.previousClock;
-        auto opponent_pid = response.payload.winemaker_pid;
+      const auto &payload = response.paylod;
+      std::lock_guard<std::mutex>(m);
 
-        if (!want_to_enter_critical_section || opponent_clock > my_clock ||
+      switch (response.mesage) {
+      case CommonMessage::REQUEST: {
+        auto my_clock = response.previousClock;
+        auto opponent_clock = payload.clock;
+        auto opponent_pid = payload.winemaker_pid;
+
+        if (!want_to_enter_critical_section || opponent_clock < my_clock ||
             (opponent_clock == my_clock && opponent_pid < pid)) {
-          et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK, EntirePayload(),
-                  response.source);
+          t.send(CommonMessage::ACK, EntirePayload(), response.source);
         } else {
           wait_queue.push(response.source);
         }
+
         break;
       }
 
-      case WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK:
-        critical_section_counter--;
-        if (critical_section_counter == 0) {
+      case CommonMessage::ACK: {
+        ack_counter--;
+        if (ack_counter == 0) {
           critical_section_wait.notify_one();
         }
         break;
-
-      case WinemakerMessage::WINEMAKER_SAFE_PLACE_RESERVED:
-        safe_places_free[response.payload.safe_place_id] = false;
-        break;
-
-      case WinemakerMessage::WINEMAKER_SAFE_PLACE_LEFT:
-        safe_places_free[response.payload.safe_place_id] = true;
-        break;
-
-      case StudentMessage::STUDENT_SAFE_PLACE_RESERVED: {
-        auto spid = response.payload.safe_place_id;
-        safe_places_students_available[spid] = true;
-        safe_places_students_ids[spid] = response.source;
-        safe_places_students_wine_needs[spid] = response.payload.wine_amount;
-
-        if (in_safe_place && spid == safe_place_id) {
-          student_wait.notify_one();
-        }
-
-        break;
       }
 
-      case StudentMessage::STUDENT_SAFE_PLACE_LEFT: {
-        auto spid = response.payload.safe_place_id;
-        safe_places_students_available[spid] = false;
-        safe_places_students_ids[spid] = 0;
-        safe_places_students_wine_needs[spid] = 0;
+      case CommonMessage::SAFE_PLACE_UPDATED: {
+        auto spid = payload.safe_place_id;
+        auto &r = safe_places_wine_amounts[spid];
+
+        auto old_value = r;
+        r = payload.wine_amount;
+        auto new_value = r;
+
+        if (old_value == 0 && new_value > 0) {
+          free_safe_places--;
+        } else if (old_value > 0 && new_value == 0) {
+          free_safe_places++;
+          free_safe_places_wait.notify_one();
+        }
+
         break;
       }
       }
     }
   }
 
-private:
-  Config &config;
-  MessageTransmitter et;
-  std::queue<int> wait_queue;
-  std::condition_variable critical_section_wait, student_wait;
-  std::mutex critical_section_wait_mutex, student_wait_mutex, m;
-
-  std::vector<bool> safe_places_free;
-  std::vector<bool> safe_places_students_available;
-  std::vector<unsigned> safe_places_students_ids;
-  std::vector<unsigned> safe_places_students_wine_needs;
-
-  bool want_to_enter_critical_section = false;
-  bool wait_for_student;
-
-  unsigned pid;
-  unsigned wine_available = 0;
-  unsigned safe_place_id = 0;
-  bool in_safe_place = false;
-  unsigned critical_section_counter;
-  unsigned student_pid;
-
   void makeWine() {
-    {
-      std::unique_lock<std::mutex>(m);
-      et.send(ObserverMessage::WINEMAKER_PRODUCTION_STARTED,
-              EntirePayload().setWinemakerPid(pid), 0);
-    }
+    m.lock();
+    t.send(ObserverMessage::WINEMAKER_PRODUCTION_STARTED,
+           EntirePayload().setWinemakerPid(pid), 0);
+    m.unlock();
 
     auto duration = std::chrono::seconds(randint(1, 10));
     std::this_thread::sleep_for(duration);
 
-    {
-      std::unique_lock<std::mutex>(m);
-      wine_available = randint(1, config.max_wine_production);
-
-      et.send(
-          ObserverMessage::WINEMAKER_PRODUCTION_END,
-          EntirePayload().setWinemakerPid(pid).setWineAmount(wine_available),
-          0);
-    }
-  }
-
-  void reserveSafePlace() {
-    while (true) {
-      {
-        std::unique_lock<std::mutex>(m);
-        want_to_enter_critical_section = true;
-        critical_section_counter = config.winemakers - 1;
-
-        auto payload = EntirePayload();
-        et.updateClock(payload);
-
-        config.forEachWinemaker([&](int process_id) {
-          if (process_id != pid) {
-            auto payload_copy = payload;
-            payload_copy.setWinemakerPid(pid);
-
-            et.multicast(WinemakerMessage::WINEMAKER_SAFE_PLACE_REQUEST,
-                         payload_copy, process_id);
-          }
-        });
-      }
-
-      if (critical_section_counter > 0) {
-        std::unique_lock<std::mutex> lock(critical_section_wait_mutex);
-        critical_section_wait.wait(lock);
-      }
-      {
-        std::unique_lock<std::mutex>(m);
-        // Critical section start
-        want_to_enter_critical_section = false;
-
-        bool ok = false;
-        for (unsigned i = 0; i < config.safe_places; i++) {
-          if (safe_places_free[i]) {
-            std::unique_lock<std::mutex>(m);
-            safe_places_free[i] = false;
-            safe_place_id = i;
-            wait_for_student = true;
-            ok = true;
-            in_safe_place = true;
-            break;
-          }
-        }
-
-        if (ok) {
-          auto payload = EntirePayload()
-                             .setSafePlaceId(safe_place_id)
-                             .setWineAmount(wine_available);
-          et.updateClock(payload);
-
-          config.forEachWinemakerAndStudent([&](int process_id) {
-            if (process_id != pid) {
-              auto payload_copy = payload;
-              et.multicast(WinemakerMessage::WINEMAKER_SAFE_PLACE_RESERVED,
-                           payload_copy, process_id);
-            }
-          });
-
-          if (safe_places_students_available[safe_place_id]) {
-            wait_for_student = false;
-          }
-        }
-
-        // Critical section end
-        while (!wait_queue.empty()) {
-          auto process_id = wait_queue.front();
-          wait_queue.pop();
-          et.send(WinemakerMessage::WINEMAKER_SAFE_PLACE_ACK, EntirePayload(),
-                  process_id);
-        }
-
-        if (ok) {
-          et.send(ObserverMessage::WINEMAKER_SAFE_PLACE_RESERVED,
-                  EntirePayload().setWinemakerPid(pid).setSafePlaceId(
-                      safe_place_id),
-                  0);
-          break;
-        }
-
-        std::this_thread::sleep_for(std::chrono::seconds(randint(1, 3)));
-      }
-    }
+    m.lock();
+    wine_available = randint(1, config.max_wine_production);
+    t.send(ObserverMessage::WINEMAKER_PRODUCTION_END,
+           EntirePayload().setWinemakerPid(pid).setWineAmount(wine_available),
+           0);
+    m.unlock();
   }
 
   void handleSafePlace() {
     m.lock();
-    while (wine_available > 0) {
-      if (wait_for_student) {
-        m.unlock();
-        std::unique_lock<std::mutex> lock(student_wait_mutex);
-        student_wait.wait(lock);
-        m.lock();
+
+    want_to_enter_critical_section = true;
+    ack_counter = config.winemakers + config.students - 1;
+
+    auto payload = EntirePayload().setWinemakerPid(pid).setStudentPid(pid);
+    t.updateClock(payload);
+    config.forEachWinemakerAndStudent([&](int process_id) {
+      if (process_id != pid) {
+        auto payload_copy = payload;
+        t.multicast(CommonMessage::REQUEST, payload_copy, process_id);
       }
+    });
 
-      wait_for_student = true;
-      auto student_pid = safe_places_students_ids[safe_place_id];
-      auto wine_requested = safe_places_students_wine_needs[safe_place_id];
-      auto wine_given = std::min(wine_requested, wine_available);
+    if (ack_counter > 0) {
+      m.unlock();
+      critical_section_wait_mutex.lock();
+      critical_section_wait.wait();
+      critical_section_wait_mutex.unlock();
+      m.lock();
+    }
 
-      et.send(WinemakerMessage::HERE_YOU_ARE,
-              EntirePayload().setWineAmount(wine_given), student_pid);
+    // Critical section start
+    want_to_enter_critical_section = false;
+    bool ok = false;
+    for (unsigned i = 0; i < config.safe_places; i++) {
+      if (safe_places_wine_amounts[i] == 0) {
+        ok = true;
+        safe_place_id = i;
+      }
+    }
+    if (!ok) {
+      safe_place_id = randint(0, config.safe_places);
+    }
 
-      et.send(ObserverMessage::WINEMAKER_GAVE_WINE_TO_STUDENT,
-              EntirePayload()
-                  .setWinemakerPid(pid)
-                  .setStudentPid(student_pid)
-                  .setSafePlaceId(safe_place_id)
-                  .setWineAmount(wine_given),
-              0);
+    auto payload = EntirePayload()
+                       .setSafePlaceId(safe_place_id)
+                       .setWineAmount(wine_available);
 
-      wine_available -= wine_given;
-      safe_places_students_wine_needs[safe_place_id] -= wine_given;
+    t.updateClock(payload);
+    config.forEachWinemakerAndStudent([&](int process_id) {
+      if (process_id != pid) {
+        auto payload_copy = payload;
+        t.multicast(CommonMessage::SAFE_PLACE_UPDATED, payload_copy,
+                    process_id);
+      }
+    });
 
-      auto payload = EntirePayload()
-                         .setSafePlaceId(safe_place_id)
-                         .setWineAmount(wine_given);
-      et.updateClock(payload);
-      config.forEachWinemaker([&](int process_id) {
-        if (process_id != pid) {
-          auto payload_copy = payload;
-          et.multicast(WinemakerMessage::STUDENT_WINE_NEEDS_DECREASED,
-                       payload_copy, process_id);
-        }
-      });
+    wine_available = 0;
+
+    std::this_thread::sleep_for(std::chrono::seconds(randint(1, 3)));
+
+    // Critical section end
+    while (!wait_queue.empty()) {
+      auto process_id = wait_queue.front();
+      wait_queue.pop();
+      t.send(CommonMessage::ACK, EntirePayload(), process_id);
     }
 
     m.unlock();
   }
-
-  void leaveSafePlace() {
-    std::unique_lock<std::mutex>(m);
-    safe_places_free[safe_place_id] = true;
-    in_safe_place = false;
-
-    auto payload = EntirePayload().setSafePlaceId(safe_place_id);
-    et.updateClock(payload);
-    config.forEachWinemakerAndStudent([&](int process_id) {
-      if (process_id != pid) {
-        auto payload_copy = payload;
-        et.multicast(WinemakerMessage::WINEMAKER_SAFE_PLACE_LEFT, payload_copy,
-                     process_id);
-      }
-    });
-
-    et.send(ObserverMessage::WINEMAKER_SAFE_PLACE_LEFT,
-            EntirePayload().setWinemakerPid(pid).setSafePlaceId(safe_place_id),
-            0);
-  }
 };
+
+class Student : public WorkingProces {
+  Config &config;
+  unsigned pid;
+  MessageTransmitter t;
+
+  unsigned wine_demand;
+  std::vector<unsigned> safe_places_wine_amounts;
+
+  std::mutex m, critical_section_wait_mutex;
+  std::condition_variable critical_section_wait;
+  bool want_to_enter_critical_section = false;
+  std::queue<int> wait_queue;
+  unsigned ack_counter;
+  unsigned free_safe_places;
+
+public:
+  Student(Config &config, unsigned pid)
+      : config(config), pid(pid),
+        free_safe_places(config.safe_places)
+            safe_places_wine_amounts(config.safe_places, 0) {}
+
+protected:
+  void backgroundTask() override {
+    while (true) {
+      auto response = t.receive<EntirePayload>(MPI_ANY_TAG, MPI_ANY_SOURCE);
+      const auto &payload = response.payload;
+      std::lock_guard<std::mutex>(m);
+
+      switch (response.message) {
+      case CommonMessage::REQUEST: {
+        auto my_clock = response.previousClock;
+        auto opponent_clock = payload.clock;
+        auto opponent_pid = payload.winemaker_pid;
+
+        if (!want_to_enter_critical_section || opponent_clock < my_clock ||
+            (opponent_clock == my_clock && opponent_pid < pid)) {
+          t.send(CommonMessage::ACK, EntirePayload(), response.source);
+        } else {
+          wait_queue.push(response.source);
+        }
+
+        break;
+      }
+
+      case CommonMessage::ACK: {
+        ack_counter--;
+        if (ack_counter == 0) {
+          critical_section_wait.notify_one();
+        }
+        break;
+      }
+
+      case CommonMessage::SAFE_PLACE_UPDATED: {
+        auto spid = payload.safe_place_id;
+        auto &r = safe_places_wine_amounts[spid];
+
+        auto old_value = r;
+        r = payload.wine_amount;
+        auto new_value = r;
+
+        if (old_value == 0 && new_value > 0) {
+          free_safe_places--;
+        } else if (old_value > 0 && new_value == 0) {
+          free_safe_places++;
+          free_safe_places_wait.notify_one();
+        }
+
+        break;
+      }
+      }
+    }
+  }
+
+  void foregroundTask() override {
+    relax();
+    handleSafePlace();
+  }
+
+  void relax();
+}
+
+// ----------------------
 
 class Student : public WorkingProcess {
 public:

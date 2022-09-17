@@ -19,22 +19,23 @@ struct EntirePayload : public Payload<unsigned, 5> {
   unsigned safe_place_id;
   unsigned wine_amount;
 
-  EntirePayload &setWinemakerPid(unsigned value) {
-    winemaker_pid = value;
+  EntirePayload &setWinemakerPid(unsigned winemaker_pid) {
+    this->winemaker_pid = winemaker_pid;
     return *this;
   }
 
-  EntirePayload &setStudentPid(unsigned value) {
-    student_pid = value;
+  EntirePayload &setStudentPid(unsigned student_pid) {
+    this->student_pid = student_pid;
     return *this;
   }
 
-  EntirePayload &setSafePlaceId(unsigned value) {
-    safe_place_id = value;
+  EntirePayload &setSafePlaceId(unsigned safe_place_id) {
+    this->safe_place_id = safe_place_id;
     return *this;
   }
-  EntirePayload &setWineAmount(unsigned value) {
-    wine_amount = value;
+
+  EntirePayload &setWineAmount(unsigned wine_amount) {
+    this->wine_amount = wine_amount;
     return *this;
   }
 
