@@ -1,63 +1,56 @@
 #pragma once
 
+#include "payload.hpp"
 #include <mpi.h>
 #include <mutex>
 
 struct MessageTransmitter {
-  template <typename PayloadType> struct Response {
+  struct Response {
     int message;
     int source;
-    unsigned previousClock;
-    PayloadType payload;
+    int previousClock;
+    Payload payload;
   };
 
-  template <typename PayloadType>
-  void send(int message, PayloadType &&payload, int dest,
-            MPI_Comm comm = MPI_COMM_WORLD) {
+  int clock;
+  std::mutex clock_mutex;
 
-    updateClock(payload);
-    multicast(message, payload, dest, comm);
+  void send(int message, Payload &&payload, int dest) {
+    Payload p = payload;
+    updateClock(p);
+    multicast(message, std::move(p), dest);
   }
 
-  template <typename PayloadType>
-  void multicast(int message, PayloadType &&payload, int dest,
-                 MPI_Comm comm = MPI_COMM_WORLD) {
+  void multicast(int message, Payload &&payload, int dest) {
     auto serialized = payload.serialize();
-    MPI_Send(serialized.data(), serialized.size(), payload.getType(), dest,
-             message, comm);
+    MPI_Send(serialized.data(), serialized.size(), MPI_INT, dest, message,
+             MPI_COMM_WORLD);
   }
 
-  template <typename PayloadType>
-  Response<PayloadType> receive(int message, int source,
-                                MPI_Comm comm = MPI_COMM_WORLD) {
-    Response<PayloadType> response;
+  void updateClock(Payload &payload) {
+    std::lock_guard<std::mutex> lock(clock_mutex);
+    this->clock++;
+    payload.clock = this->clock;
+  }
+
+  Response receive(int message, int source) {
+    Response response;
     MPI_Status status;
 
     auto array = response.payload.serialize();
-    MPI_Recv(array.data(), array.size(), response.payload.getType(), source,
-             message, comm, &status);
+    MPI_Recv(array.data(), array.size(), MPI_INT, source, message,
+             MPI_COMM_WORLD, &status);
+
     response.payload.deserialize(array);
     response.message = status.MPI_TAG;
     response.source = status.MPI_SOURCE;
-    response.previousClock = clock;
+    response.previousClock = this->clock;
 
     {
       std::lock_guard<std::mutex> lock(clock_mutex);
-      clock = std::max(clock, response.payload.getClock()) + 1;
+      clock = std::max(clock, response.payload.clock) + 1;
     }
 
     return response;
   }
-
-  template <typename PayloadType> void updateClock(PayloadType &payload) {
-    std::lock_guard<std::mutex> lock(clock_mutex);
-    clock++;
-    payload.setClock(clock);
-  }
-
-  unsigned getClock() { return clock; }
-
-private:
-  unsigned clock = 0;
-  std::mutex clock_mutex;
 };

@@ -22,10 +22,7 @@ int main(int argc, char *argv[]) {
 
   int process_id;
   MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
-  // Prod:
-  // srand(time(NULL) + process_id);
-  // DEV Only:
-  srand(process_id);
+  srand(config.dev ? process_id : (time(NULL) + process_id));
 
   std::unique_ptr<Runnable> process;
   if (process_id == 0) {

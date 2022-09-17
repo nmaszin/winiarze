@@ -3,25 +3,23 @@
 #include <functional>
 #include <vector>
 
+// Zawsze musi być przynajmniej 1 winiarz i 1 student!
 struct Config {
-  unsigned observers = 1;
-  unsigned winemakers = 2;
-  unsigned students = 2;
-  unsigned safe_places = 1;
-  unsigned max_wine_production = 10;
-  unsigned max_wine_demand = 10;
+  bool dev = true;
 
-  unsigned getTotalProcessesNumber() {
-    return observers + winemakers + students;
-  }
+  int observers = 1;
+  int winemakers = 2;
+  int students = 2;
+  int safe_places = 1;
+  int max_wine_production = 10;
+  int max_wine_demand = 10;
+  int max_sleep_time = 10;
 
-  unsigned getObserverIdFromPid(unsigned process_id) { return process_id; }
+  int getTotalProcessesNumber() { return observers + winemakers + students; }
 
-  unsigned getWinemakerIdFromPid(unsigned process_id) {
-    return process_id - observers;
-  }
+  int getWinemakerIdFromPid(int process_id) { return process_id - observers; }
 
-  unsigned getStudentIdFromPid(unsigned process_id) {
+  int getStudentIdFromPid(int process_id) {
     return process_id - observers - winemakers;
   }
 
