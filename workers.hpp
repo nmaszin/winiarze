@@ -227,20 +227,20 @@ struct Winemaker : public WorkingProcess {
       ack_counter = config.winemakers + config.students - 1;
     }
 
-    auto payload = Payload();
-    t.updateClock(payload);
+    t.startBroadcast();
     config.forEachWinemakerAndStudent([&](int process_id) {
       if (process_id != pid) {
-        auto payload_copy = payload;
-        t.multicast(CommonMessage::REQUEST, std::move(payload_copy),
-                    process_id);
+        t.send(CommonMessage::REQUEST, Payload(), process_id);
       }
     });
+    t.stopBroadcast();
 
+    std::cout << "Czekam se, w morde jeża\n";
     {
       std::unique_lock<std::mutex> lock(critical_section_wait_mutex);
       critical_section_wait.wait(lock);
     }
+    std::cout << "Już se nie czekam, w morde jeża\n";
 
     // CRITICAL SECTION START
     want_to_enter_critical_section = false;
@@ -258,14 +258,15 @@ struct Winemaker : public WorkingProcess {
         t.send(ObserverMessage::WINEMAKER_SAFE_PLACE_UPDATED,
                std::move(payload_copy), 0);
 
-        t.updateClock(payload);
+        t.startBroadcast();
         config.forEachWinemakerAndStudent([&](int process_id) {
           if (process_id != pid) {
             auto payload_copy = payload;
-            t.multicast(CommonMessage::SAFE_PLACE_UPDATED,
-                        std::move(payload_copy), process_id);
+            t.send(CommonMessage::SAFE_PLACE_UPDATED, std::move(payload_copy),
+                   process_id);
           }
         });
+        t.stopBroadcast();
       }
     }
     data_mutex.unlock();
@@ -367,20 +368,20 @@ struct Student : public WorkingProcess {
       ack_counter = config.winemakers + config.students - 1;
     }
 
-    auto payload = Payload();
-    t.updateClock(payload);
+    t.startBroadcast();
     config.forEachWinemakerAndStudent([&](int process_id) {
       if (process_id != pid) {
-        auto payload_copy = payload;
-        t.multicast(CommonMessage::REQUEST, std::move(payload_copy),
-                    process_id);
+        t.send(CommonMessage::REQUEST, Payload(), process_id);
       }
     });
+    t.stopBroadcast();
 
+    std::cout << "Czekam se, w morde jeża\n";
     {
       std::unique_lock<std::mutex> lock(critical_section_wait_mutex);
       critical_section_wait.wait(lock);
     }
+    std::cout << "Już se nie czekam, w morde jeża\n";
 
     // CRITICAL SECTION START
     want_to_enter_critical_section = false;
@@ -403,14 +404,15 @@ struct Student : public WorkingProcess {
         t.send(ObserverMessage::STUDENT_SAFE_PLACE_UPDATED,
                std::move(payload_copy), 0);
 
-        t.updateClock(payload);
+        t.startBroadcast();
         config.forEachWinemakerAndStudent([&](int process_id) {
           if (process_id != pid) {
             auto payload_copy = payload;
-            t.multicast(CommonMessage::SAFE_PLACE_UPDATED,
-                        std::move(payload_copy), process_id);
+            t.send(CommonMessage::SAFE_PLACE_UPDATED, std::move(payload_copy),
+                   process_id);
           }
         });
+        t.stopBroadcast();
       }
     }
     data_mutex.unlock();

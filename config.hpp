@@ -8,8 +8,8 @@ struct Config {
   bool dev = true;
 
   int observers = 1;
-  int winemakers = 2;
-  int students = 2;
+  int winemakers = 1;
+  int students = 1;
   int safe_places = 1;
   int max_wine_production = 10;
   int max_wine_demand = 10;
