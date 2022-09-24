@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <iostream>
 #include <mpi.h>
 
 struct Payload {
@@ -33,3 +34,9 @@ struct Payload {
     return std::move(*this);
   }
 };
+
+std::ostream &operator<<(std::ostream &s, const Payload &p) {
+  return s << "Payload(clock: " << p.clock
+           << ", safe_place_id: " << p.safe_place_id
+           << ", wine_amount: " << p.wine_amount << ")";
+}

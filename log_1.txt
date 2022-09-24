@@ -1,0 +1,260 @@
+[1] Clock przy wysyłce: 1
+[2] Clock przy wysyłce: 1
+[0] Clock po odbiorze: 2
+Winiarz o id 1 rozpoczął produkcję
+Aktualny stan:
+	Id:      	1	
+------------------------------------------------
+	Winiarze:	W	
+	 Meliny:   	0	
+	Studenci:	0	
+
+[0] Clock po odbiorze: 3
+Student o id 1 ma kaca
+Aktualny stan:
+	Id:      	1	
+------------------------------------------------
+	Winiarze:	W	
+	 Meliny:   	0	
+	Studenci:	R	
+
+[1] Clock przy wysyłce: 2
+[2] Clock przy wysyłce: 2
+[2] Rozpoczyna broadcast
+[0] Clock po odbiorze: 4
+[2] Clock przy wysyłce: 3
+Student o id 1 wyleczył kaca i potrzebuje 2 jednostek wina na kolejną imprezę
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 3
+[2] Kończy broadcast
+[1] Kończy broadcast
+Czekam se, w morde jeża
+Czekam se, w morde jeża
+[1] Clock po odbiorze: 4
+[1] Clock po odbiorze: 6
+Już se nie czekam, w morde jeża
+[2] Clock po odbiorze: 4
+[2] Clock przy wysyłce: 5
+Aktualny stan:
+	Id:      	1	
+------------------------------------------------
+	Winiarze:	W	
+	 Meliny:   	0	
+	Studenci:	2	
+
+[0] Clock po odbiorze: 5
+Winiarz o id 1 zakończył produkcję i wyprodukował 8 jednostek wina
+Aktualny stan:
+	Id:      	1	
+------------------------------------------------
+	Winiarze:	8	
+	 Meliny:   	0	
+	Studenci:	2	
+
+[1] Clock przy wysyłce: 7
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 8
+[0] Clock po odbiorze: 8
+Winiarz o id 1 przyniósł 8 jednostek wina, do meliny nr 1
+Aktualna liczba pustych melin to 0
+Aktualny stan:
+	Id:      	1	
+------------------------------------------------
+[1] Kończy broadcast
+	Winiarze:	0	
+	 Meliny:   	8	
+	Studenci:	2	
+
+[1] Clock przy wysyłce: 9
+[1] Clock przy wysyłce: 10
+[2] Clock po odbiorze: 10
+Już se nie czekam, w morde jeża
+[0] Clock po odbiorze: 11
+Winiarz o id 1 rozpoczął produkcję
+Aktualny stan:
+	Id:      	1	
+------------------------------------------------
+	Winiarze:	W	
+	 Meliny:   	8	
+	Studenci:	2	
+
+[1] Clock przy wysyłce: 11
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 12
+[1] Kończy broadcast
+Czekam se, w morde jeża
+[2] Clock po odbiorze: 13
+[2] Clock przy wysyłce: 14
+[2] Rozpoczyna broadcast
+[2] Clock przy wysyłce: 15
+[2] Kończy broadcast
+Czekam se, w morde jeża
+[0] Clock po odbiorze: 12
+Winiarz o id 1 zakończył produkcję i wyprodukował 8 jednostek wina
+Aktualny stan:
+	Id:      	1	
+------------------------------------------------
+	Winiarze:	8	
+	 Meliny:   	8	
+	Studenci:	2	
+
+[1] Clock po odbiorze: 15
+[1] Clock po odbiorze: 16
+Już se nie czekam, w morde jeża
+[1] Clock przy wysyłce: 17
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 18
+[1] Kończy broadcast
+Czekam se, w morde jeża
+[2] Clock po odbiorze: 18
+Już se nie czekam, w morde jeża
+[2] Clock po odbiorze: 19
+[2] Clock przy wysyłce: 20
+[1] Clock po odbiorze: 21
+Już se nie czekam, w morde jeża
+[2] Rozpoczyna broadcast
+[2] Clock przy wysyłce: 21
+[2] Kończy broadcast
+Czekam se, w morde jeża
+[2] Clock po odbiorze: 23
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 22
+[1] Kończy broadcast
+Czekam se, w morde jeża
+[1] Clock po odbiorze: 23
+[1] Clock przy wysyłce: 24
+[2] Clock po odbiorze: 25
+Już se nie czekam, w morde jeża
+[1] Clock po odbiorze: 27
+[1] Clock po odbiorze: 28
+Już se nie czekam, w morde jeża
+[2] Clock przy wysyłce: 26
+[2] Rozpoczyna broadcast
+[2] Clock przy wysyłce: 27
+[2] Kończy broadcast
+Czekam se, w morde jeża
+[2] Clock po odbiorze: 30
+[2] Clock po odbiorze: 31
+[2] Clock przy wysyłce: 32
+[1] Clock przy wysyłce: 29
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 30
+[1] Kończy broadcast
+Czekam se, w morde jeża
+[1] Clock po odbiorze: 33
+Już se nie czekam, w morde jeża
+Już se nie czekam, w morde jeża
+[2] Rozpoczyna broadcast
+[2] Clock przy wysyłce: 33
+[2] Kończy broadcast
+Czekam se, w morde jeża
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 34
+[1] Kończy broadcast
+Czekam se, w morde jeża
+[2] Clock po odbiorze: 35
+[1] Clock po odbiorze: 35
+[1] Clock przy wysyłce: 36
+[2] Clock po odbiorze: 37
+Już se nie czekam, w morde jeża
+[2] Clock przy wysyłce: 38
+[2] Rozpoczyna broadcast
+[2] Clock przy wysyłce: 39
+[2] Kończy broadcast
+Czekam se, w morde jeża
+[1] Clock po odbiorze: 39
+[1] Clock po odbiorze: 40
+Już se nie czekam, w morde jeża
+[1] Clock przy wysyłce: 41
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 42
+[1] Kończy broadcast
+Czekam se, w morde jeża
+[2] Clock po odbiorze: 42
+[2] Clock po odbiorze: 43
+[2] Clock przy wysyłce: 44
+Już se nie czekam, w morde jeża
+[1] Clock po odbiorze: 45
+Już se nie czekam, w morde jeża
+[1] Clock po odbiorze: 46
+[1] Clock przy wysyłce: 47
+[2] Rozpoczyna broadcast
+[2] Clock przy wysyłce: 45
+[2] Kończy broadcast
+Czekam se, w morde jeża
+[2] Clock po odbiorze: 48
+Już se nie czekam, w morde jeża
+[2] Clock po odbiorze: 49
+[2] Clock przy wysyłce: 50
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 48
+[1] Kończy broadcast
+Czekam se, w morde jeża
+[1] Clock po odbiorze: 51
+Już se nie czekam, w morde jeża
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 52
+[1] Kończy broadcast
+Czekam se, w morde jeża
+[2] Rozpoczyna broadcast
+[2] Clock przy wysyłce: 51
+[2] Kończy broadcast
+Czekam se, w morde jeża
+[2] Clock po odbiorze: 53
+[1] Clock po odbiorze: 53
+[1] Clock przy wysyłce: 54
+[2] Clock po odbiorze: 55
+Już se nie czekam, w morde jeża
+[2] Clock przy wysyłce: 56
+[2] Rozpoczyna broadcast
+[2] Clock przy wysyłce: 57
+[2] Kończy broadcast
+Czekam se, w morde jeża
+[1] Clock po odbiorze: 57
+[1] Clock po odbiorze: 58
+Już se nie czekam, w morde jeża
+[1] Clock przy wysyłce: 59
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 60
+[1] Kończy broadcast
+Czekam se, w morde jeża
+[1] Clock po odbiorze: 63
+[2] Clock po odbiorze: 60
+[2] Clock po odbiorze: 61
+[2] Clock przy wysyłce: 62
+Już se nie czekam, w morde jeża
+Już se nie czekam, w morde jeża
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 64
+[1] Kończy broadcast
+Czekam se, w morde jeża
+[2] Clock po odbiorze: 65
+[2] Clock przy wysyłce: 66
+[2] Rozpoczyna broadcast
+[2] Clock przy wysyłce: 67
+[2] Kończy broadcast
+Czekam se, w morde jeża
+[1] Clock po odbiorze: 67
+[1] Clock po odbiorze: 68
+Już se nie czekam, w morde jeża
+[2] Clock po odbiorze: 70
+[2] Clock po odbiorze: 71
+[2] Clock przy wysyłce: 72
+[1] Clock przy wysyłce: 69
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 70
+[1] Kończy broadcast
+Czekam se, w morde jeża
+[1] Clock po odbiorze: 73
+Już se nie czekam, w morde jeża
+Już se nie czekam, w morde jeża
+[2] Rozpoczyna broadcast
+[2] Clock przy wysyłce: 73
+[2] Kończy broadcast
+Czekam se, w morde jeża
+[1] Clock po odbiorze: 74
+[2] Clock po odbiorze: 76
+[1] Rozpoczyna broadcast
+[1] Clock przy wysyłce: 75
+[1] Kończy broadcast
+Czekam se, w morde jeża

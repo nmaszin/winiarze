@@ -1,6 +1,7 @@
 #pragma once
 
 #include "payload.hpp"
+#include "utils.hpp"
 #include <mpi.h>
 #include <mutex>
 
@@ -13,48 +14,40 @@ struct MessageTransmitter {
   };
 
   int clock = 0;
-  bool broadcast = false;
   std::mutex clock_mutex;
 
   void send(int message, Payload &&payload, int dest) {
-    Payload p = payload;
-    if (broadcast) {
-      p.clock = this->clock;
-    } else {
-      updateClock(p);
-    }
+    std::lock_guard<std::mutex> lock(clock_mutex);
+    this->clock++;
+    sendBroadcast(message, std::move(payload), dest);
+  }
 
-    auto serialized = p.serialize();
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    std::cout << "[" << rank << "] Clock przy wysyłce: " << p.clock << "\n";
+  void sendBroadcast(int message, Payload &&payload, int dest) {
+    payload.clock = this->clock;
+
+    auto serialized = payload.serialize();
+    print.lock();
+    std::cerr << process::rank << "send() msg: " << message
+              << ", dest: " << dest << ", clock: " << clock
+              << ", payload: " << payload << "\n";
+    print.unlock();
     MPI_Send(serialized.data(), serialized.size(), MPI_INT, dest, message,
              MPI_COMM_WORLD);
   }
 
   void startBroadcast() {
     clock_mutex.lock();
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    std::cout << "[" << rank << "] Rozpoczyna broadcast"
-              << "\n";
-    broadcast = true;
+    print.lock();
+    std::cerr << process::rank << "Rozpoczyna broadcast\n";
+    print.unlock();
     this->clock++;
   }
 
   void stopBroadcast() {
-    broadcast = false;
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    std::cout << "[" << rank << "] Kończy broadcast"
-              << "\n";
+    print.lock();
+    std::cerr << process::rank << "Kończy broadcast\n";
+    print.unlock();
     clock_mutex.unlock();
-  }
-
-  void updateClock(Payload &payload) {
-    std::lock_guard<std::mutex> lock(clock_mutex);
-    this->clock++;
-    payload.clock = this->clock;
   }
 
   Response receive(int message, int source) {
@@ -68,16 +61,18 @@ struct MessageTransmitter {
     response.payload.deserialize(array);
     response.message = status.MPI_TAG;
     response.source = status.MPI_SOURCE;
-    response.previousClock = this->clock;
 
     {
       std::lock_guard<std::mutex> lock(clock_mutex);
-      clock = std::max(clock, response.payload.clock) + 1;
-    }
+      response.previousClock = this->clock;
+      this->clock = std::max(this->clock, response.payload.clock) + 1;
 
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    std::cout << "[" << rank << "] Clock po odbiorze: " << clock << "\n";
+      print.lock();
+      std::cerr << process::rank << " recv() mesg: " << response.message
+                << ", src: " << response.source << ", clock: " << clock
+                << ", payload: " << response.payload << "\n";
+      print.unlock();
+    }
 
     return response;
   }
