@@ -186,8 +186,6 @@ private:
   std::thread thread;
 };
 
-enum WantToEnter { WANTED, HELD, RELEASED };
-
 struct Winemaker : public WorkingProcess {
   Config &config;
   int pid;
@@ -196,9 +194,8 @@ struct Winemaker : public WorkingProcess {
   int wine_available = 0;
   std::vector<int> safe_places_wine_amounts;
 
-  WantToEnter want_to_enter_critical_section = RELEASED;
+  bool want_to_enter_critical_section = false;
   bool wait_ready = false;
-  std::mutex want_to_enter_critical_section_mutex;
   std::mutex wait_ready_mutex;
 
   int ack_counter;
@@ -223,33 +220,34 @@ struct Winemaker : public WorkingProcess {
     ot.send(ObserverMessage::WINEMAKER_PRODUCTION_STARTED, Payload(), 0);
 
     sleep(randint(1, config.max_sleep_time));
-    wine_available = randint(1, config.max_wine_production);
+    {
+      std::lock_guard<std::mutex> lock(data_mutex);
+      wine_available = randint(1, config.max_wine_production);
+    }
 
     ot.send(ObserverMessage::WINEMAKER_PRODUCTION_END,
             Payload().setWineAmount(wine_available), 0);
   }
 
   void deliverWine() {
-    want_to_enter_critical_section_mutex.lock();
-    want_to_enter_critical_section = WANTED;
-    want_to_enter_critical_section_mutex.unlock();
-
     {
       std::lock_guard<std::mutex> lock(data_mutex);
+      want_to_enter_critical_section = true;
       ack_counter = config.winemakers + config.students - 1;
-    }
 
-    t.startBroadcast();
-    config.forEachWinemakerAndStudent([&](int process_id) {
-      if (process_id != pid) {
-        t.sendBroadcast(CommonMessage::REQUEST, Payload(), process_id);
-      }
-    });
-    t.stopBroadcast();
+      t.startBroadcast();
+      config.forEachWinemakerAndStudent([&](int process_id) {
+        if (process_id != pid) {
+          t.sendBroadcast(CommonMessage::REQUEST, Payload(), process_id);
+        }
+      });
+      t.stopBroadcast();
+    }
 
     print.lock();
     std::cerr << process::rank << "Czekam se, w morde jeża\n";
     print.unlock();
+
     {
       // std::unique_lock<std::mutex> lock(critical_section_wait_mutex);
       // critical_section_wait.wait(lock);
@@ -272,58 +270,52 @@ struct Winemaker : public WorkingProcess {
     std::cerr << process::rank << "Już se nie czekam, w morde jeża\n";
     print.unlock();
 
-    want_to_enter_critical_section_mutex.lock();
-    want_to_enter_critical_section = HELD;
-    want_to_enter_critical_section_mutex.unlock();
+    {
+      std::lock_guard<std::mutex> lock(data_mutex);
+      want_to_enter_critical_section = false;
+      // CRITICAL SECTION START
+      sleep(randint(1, config.max_sleep_time));
+      for (int i = 0; i < config.safe_places; i++) {
+        if (safe_places_wine_amounts[i] == 0) {
+          safe_places_wine_amounts[i] = wine_available;
+          wine_available = 0;
 
-    // CRITICAL SECTION START
-    sleep(randint(1, config.max_sleep_time));
-    data_mutex.lock();
-    for (int i = 0; i < config.safe_places; i++) {
-      if (safe_places_wine_amounts[i] == 0) {
-        safe_places_wine_amounts[i] = wine_available;
-        wine_available = 0;
+          auto payload = Payload().setSafePlaceId(i).setWineAmount(
+              safe_places_wine_amounts[i]);
 
-        auto payload = Payload().setSafePlaceId(i).setWineAmount(
-            safe_places_wine_amounts[i]);
+          auto payload_copy = payload;
+          ot.send(ObserverMessage::WINEMAKER_SAFE_PLACE_UPDATED,
+                  std::move(payload_copy), 0);
 
-        auto payload_copy = payload;
-        ot.send(ObserverMessage::WINEMAKER_SAFE_PLACE_UPDATED,
-                std::move(payload_copy), 0);
-
-        t.startBroadcast();
-        config.forEachWinemakerAndStudent([&](int process_id) {
-          if (process_id != pid) {
-            auto payload_copy = payload;
-            t.sendBroadcast(CommonMessage::SAFE_PLACE_UPDATED,
-                            std::move(payload_copy), process_id);
-          }
-        });
-        t.stopBroadcast();
+          t.startBroadcast();
+          config.forEachWinemakerAndStudent([&](int process_id) {
+            if (process_id != pid) {
+              auto payload_copy = payload;
+              t.sendBroadcast(CommonMessage::SAFE_PLACE_UPDATED,
+                              std::move(payload_copy), process_id);
+            }
+          });
+          t.stopBroadcast();
+          break;
+        }
       }
-    }
-    data_mutex.unlock();
-    sleep(randint(1, config.max_sleep_time));
 
-    want_to_enter_critical_section_mutex.lock();
-    want_to_enter_critical_section = RELEASED;
-    want_to_enter_critical_section_mutex.unlock();
-    // CRITICAL SECTION END
-
-    data_mutex.lock();
-    t.startBroadcast();
-    while (!wait_queue.empty()) {
-      auto process_id = wait_queue.front();
-      wait_queue.pop();
-      t.sendBroadcast(CommonMessage::ACK, Payload(), process_id);
+      sleep(randint(1, config.max_sleep_time));
+      // CRITICAL SECTION END
+      t.startBroadcast();
+      while (!wait_queue.empty()) {
+        auto process_id = wait_queue.front();
+        wait_queue.pop();
+        t.sendBroadcast(CommonMessage::ACK, Payload(), process_id);
+      }
+      t.stopBroadcast();
     }
-    t.stopBroadcast();
-    data_mutex.unlock();
   }
 
   void backgroundTask() override {
     while (true) {
       auto response = t.receive(MPI_ANY_TAG, MPI_ANY_SOURCE);
+      std::lock_guard<std::mutex> lock(data_mutex);
       const auto &payload = response.payload;
 
       switch (response.message) {
@@ -337,17 +329,10 @@ struct Winemaker : public WorkingProcess {
                   << "PRZYSZEDŁ REQUEST (mój zegar: " << my_clock
                   << ", jego zegar: " << opponent_clock << "): " << std::flush;
 
-        want_to_enter_critical_section_mutex.lock();
-        WantToEnter w = want_to_enter_critical_section;
-        want_to_enter_critical_section_mutex.unlock();
-
-        if ((w == HELD) || (w == WANTED && (my_clock < opponent_clock ||
-                                            (my_clock == opponent_clock &&
-                                             pid < opponent_pid)))) {
+        if ((want_to_enter_critical_section &&
+             (my_clock < opponent_clock ||
+              (my_clock == opponent_clock && pid < opponent_pid)))) {
           std::cerr << "Czekam... " << std::flush;
-          print.unlock();
-          std::lock_guard<std::mutex> lock(data_mutex);
-          print.lock();
           std::cerr << "Musisz poczekać!\n";
           print.unlock();
           wait_queue.push(response.source);
@@ -357,27 +342,10 @@ struct Winemaker : public WorkingProcess {
           t.send(CommonMessage::ACK, Payload(), response.source);
         }
 
-        /*
-          if (!w || opponent_clock < my_clock ||
-              (opponent_clock == my_clock && opponent_pid < pid)) {
-            std::cerr << "Zgadzam się\n";
-            print.unlock();
-            t.send(CommonMessage::ACK, Payload(), response.source);
-          } else {
-            std::cerr << "Czekam... " << std::flush;
-            print.unlock();
-            std::lock_guard<std::mutex> lock(data_mutex);
-            print.lock();
-            std::cerr << "Musisz poczekać!\n";
-            print.unlock();
-            wait_queue.push(response.source);
-          }
-*/
         break;
       }
 
       case CommonMessage::ACK: {
-        std::lock_guard<std::mutex> lock(data_mutex);
         ack_counter--;
         if (ack_counter == 0) {
           // critical_section_wait.notify_one();
@@ -392,7 +360,6 @@ struct Winemaker : public WorkingProcess {
       }
 
       case CommonMessage::SAFE_PLACE_UPDATED: {
-        std::lock_guard<std::mutex> lock(data_mutex);
         auto spid = payload.safe_place_id;
         safe_places_wine_amounts[spid] = payload.wine_amount;
         break;
