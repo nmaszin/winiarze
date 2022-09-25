@@ -17,36 +17,31 @@ struct MessageTransmitter {
   std::mutex clock_mutex;
 
   void send(int message, Payload &&payload, int dest) {
-    std::lock_guard<std::mutex> lock(clock_mutex);
+    clock_mutex.lock();
     this->clock++;
     sendBroadcast(message, std::move(payload), dest);
+    clock_mutex.unlock();
   }
 
   void sendBroadcast(int message, Payload &&payload, int dest) {
     payload.clock = this->clock;
 
     auto serialized = payload.serialize();
-    print.lock();
     std::cerr << process::rank << "send() msg: " << message
               << ", dest: " << dest << ", clock: " << clock
               << ", payload: " << payload << "\n";
-    print.unlock();
     MPI_Send(serialized.data(), serialized.size(), MPI_INT, dest, message,
              MPI_COMM_WORLD);
   }
 
   void startBroadcast() {
     clock_mutex.lock();
-    print.lock();
     std::cerr << process::rank << "Rozpoczyna broadcast\n";
-    print.unlock();
     this->clock++;
   }
 
   void stopBroadcast() {
-    print.lock();
     std::cerr << process::rank << "Kończy broadcast\n";
-    print.unlock();
     clock_mutex.unlock();
   }
 
@@ -63,15 +58,14 @@ struct MessageTransmitter {
     response.source = status.MPI_SOURCE;
 
     {
-      std::lock_guard<std::mutex> lock(clock_mutex);
+      clock_mutex.lock();
       response.previousClock = this->clock;
       this->clock = std::max(this->clock, response.payload.clock) + 1;
 
-      print.lock();
       std::cerr << process::rank << " recv() mesg: " << response.message
                 << ", src: " << response.source << ", clock: " << clock
                 << ", payload: " << response.payload << "\n";
-      print.unlock();
+      clock_mutex.unlock();
     }
 
     return response;
