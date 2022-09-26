@@ -10,7 +10,7 @@ struct Config {
   int observers = 1;
   int winemakers = 2;
   int students = 0;
-  int safe_places = 100000;
+  int safe_places = 1; // 100000;
   int max_wine_production = 10;
   int max_wine_demand = 10;
   int max_sleep_time = 10;

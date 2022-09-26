@@ -199,6 +199,7 @@ struct Winemaker : public WorkingProcess {
   std::mutex wait_ready_mutex;
 
   int ack_counter;
+  int request_clock = 0;
   std::queue<int> wait_queue;
   std::mutex data_mutex;
 
@@ -245,6 +246,7 @@ struct Winemaker : public WorkingProcess {
       }
     });
     t.stopBroadcast();
+    request_clock = t.getClock();
     data_mutex.unlock();
 
     std::cerr << process::rank << "Czekam se, w morde jeża\n";
@@ -290,12 +292,9 @@ struct Winemaker : public WorkingProcess {
           }
         });
         t.stopBroadcast();
+
         break;
       }
-    }
-
-    if (wine_available > 0) {
-      std::cerr << "No to tera się zakleszczy\n";
     }
 
     sleep(randint(1, config.max_sleep_time));
@@ -317,7 +316,8 @@ struct Winemaker : public WorkingProcess {
 
       switch (response.message) {
       case CommonMessage::REQUEST: {
-        auto my_clock = response.previousClock;
+        // auto my_clock = response.previousClock;
+        auto my_clock = request_clock;
         auto opponent_clock = payload.clock;
         auto opponent_pid = response.source;
 
@@ -343,9 +343,9 @@ struct Winemaker : public WorkingProcess {
         ack_counter--;
         if (ack_counter == 0) {
           std::cout << process::rank << "ACK_COUNTER = " << ack_counter << "\n";
-          // wait_ready_mutex.lock();
+          wait_ready_mutex.lock();
           wait_ready = true;
-          // wait_ready_mutex.unlock();
+          wait_ready_mutex.unlock();
         }
         break;
       }

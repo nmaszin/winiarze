@@ -16,6 +16,19 @@ struct MessageTransmitter {
   int clock = 0;
   std::mutex clock_mutex;
 
+  void setClock(int value) {
+    clock_mutex.lock();
+    this->clock = value;
+    clock_mutex.unlock();
+  }
+
+  int getClock() {
+    clock_mutex.lock();
+    int copy = this->clock;
+    clock_mutex.unlock();
+    return copy;
+  }
+
   void send(int message, Payload &&payload, int dest) {
     clock_mutex.lock();
     this->clock++;
