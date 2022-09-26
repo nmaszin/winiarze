@@ -8,12 +8,12 @@ struct Config {
   bool dev = true;
 
   int observers = 1;
-  int winemakers = 2;
-  int students = 0;
-  int safe_places = 1; // 100000;
+  int winemakers = 5;
+  int students = 5;
+  int safe_places = 5; // 100000;
   int max_wine_production = 10;
   int max_wine_demand = 10;
-  int max_sleep_time = 10;
+  int max_sleep_time = 5;
 
   int getTotalProcessesNumber() { return observers + winemakers + students; }
 

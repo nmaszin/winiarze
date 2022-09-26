@@ -9,7 +9,6 @@ struct MessageTransmitter {
   struct Response {
     int message;
     int source;
-    int previousClock;
     Payload payload;
   };
 
@@ -40,23 +39,16 @@ struct MessageTransmitter {
     payload.clock = this->clock;
 
     auto serialized = payload.serialize();
-    std::cerr << process::rank << "send() msg: " << message
-              << ", dest: " << dest << ", clock: " << clock
-              << ", payload: " << payload << "\n";
     MPI_Send(serialized.data(), serialized.size(), MPI_INT, dest, message,
              MPI_COMM_WORLD);
   }
 
   void startBroadcast() {
     clock_mutex.lock();
-    std::cerr << process::rank << "Rozpoczyna broadcast\n";
     this->clock++;
   }
 
-  void stopBroadcast() {
-    std::cerr << process::rank << "Kończy broadcast\n";
-    clock_mutex.unlock();
-  }
+  void stopBroadcast() { clock_mutex.unlock(); }
 
   Response receive(int message, int source) {
     Response response;
@@ -72,12 +64,7 @@ struct MessageTransmitter {
 
     {
       clock_mutex.lock();
-      response.previousClock = this->clock;
       this->clock = std::max(this->clock, response.payload.clock) + 1;
-
-      std::cerr << process::rank << " recv() mesg: " << response.message
-                << ", src: " << response.source << ", clock: " << clock
-                << ", payload: " << response.payload << "\n";
       clock_mutex.unlock();
     }
 

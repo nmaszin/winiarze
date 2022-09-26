@@ -9,10 +9,9 @@
 // Range: [min, max)
 int randint(int min, int max) { return min + (rand() % (max - min)); }
 
-void sleep(int seconds) {
-  auto duration = std::chrono::seconds(seconds);
+void sleep(int milliseconds) {
+  auto duration = std::chrono::milliseconds(milliseconds);
   // std::this_thread::sleep_for(duration);
-  // std::this_thread::sleep_for(std::chrono::milliseconds(10));
 }
 
 namespace process {

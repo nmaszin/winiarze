@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
   } else if (process_id <= config.winemakers) {
     process = std::make_unique<Winemaker>(config, process_id);
   } else {
-    // process = std::make_unique<Student>(config, process_id);
+    process = std::make_unique<Student>(config, process_id);
   }
 
   process->run();
