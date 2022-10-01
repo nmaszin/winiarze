@@ -98,8 +98,6 @@ public:
         std::cout << "Winiarz o id " << wid + 1 << " przyniósł " << increase
                   << " jednostek wina, do meliny nr " << spid + 1 << "\n";
 
-        std::cout << "Aktualna liczba pustych melin to " << free_safe_places
-                  << "\n";
         break;
       }
 
@@ -118,8 +116,6 @@ public:
         std::cout << "Student o id " << sid + 1 << " zabrał " << decrease
                   << " jednostek wina, z meliny nr " << spid + 1 << "\n";
 
-        std::cout << "Aktualna liczba pustych melin to " << free_safe_places
-                  << "\n";
         break;
       }
       }
@@ -255,6 +251,8 @@ struct Winemaker : public WorkingProcess {
       if (x) {
         break;
       }
+
+      sleep(20);
     }
 
     wait_ready_mutex.lock();
@@ -311,9 +309,9 @@ struct Winemaker : public WorkingProcess {
         auto opponent_clock = payload.clock;
         auto opponent_pid = response.source;
 
-        if ((want_to_enter_critical_section &&
-             (my_clock < opponent_clock ||
-              (my_clock == opponent_clock && pid < opponent_pid)))) {
+        if (want_to_enter_critical_section &&
+            (my_clock < opponent_clock ||
+             (my_clock == opponent_clock && pid < opponent_pid))) {
           wait_queue.push(response.source);
         } else {
           t.send(CommonMessage::ACK, Payload(), response.source);
